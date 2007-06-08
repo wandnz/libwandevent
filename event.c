@@ -15,19 +15,19 @@
 #endif
 
 static fd_set rfd,wfd,xfd;
-static struct fdcb_t **events;
-static struct timer_t *timers;
-static struct timer_t *timers_tail;
-static struct signal_t **signals;
+static struct wand_fdcb_t **events;
+static struct wand_timer_t *timers;
+static struct wand_timer_t *timers_tail;
+static struct wand_signal_t **signals;
 static int maxfd=-1;
 static int maxsig=-1;
-struct timeval now;
-bool running;
+struct timeval wand_now;
+bool wand_event_running;
 
 int signal_pipe[2];
 struct sigaction signal_event;
 sigset_t active_sig;
-struct fdcb_t pipe_event;
+struct wand_fdcb_t pipe_event;
 
 struct sigaction default_sig;
 
@@ -37,9 +37,9 @@ void event_sig_hdl(int signum) {
 	}
 }
 
-void pipe_read(struct fdcb_t* evcb, enum eventtype_t ev) {
+void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
 	int signum = -1;
-	struct signal_t *signal;
+	struct wand_signal_t *signal;
 	if (read(signal_pipe[0], &signum, 4) != 4) {
 		printf("error reading signum from pipe\n");
 		return;
@@ -67,8 +67,8 @@ int init_event()
 	signals = NULL;
 	maxsig = -1;
 	maxfd=-1;
-	running=true;
-	gettimeofday(&now,NULL);
+	wand_event_running=true;
+	gettimeofday(&wand_now,NULL);
 
 	sigemptyset(&active_sig);
 	
@@ -98,8 +98,8 @@ int init_event()
 struct timeval calc_expire(int sec,int usec)
 {
 	struct timeval tmp;
-	tmp.tv_sec=now.tv_sec+sec;
-	tmp.tv_usec=now.tv_usec+usec;
+	tmp.tv_sec=wand_now.tv_sec+sec;
+	tmp.tv_usec=wand_now.tv_usec+usec;
 	if (tmp.tv_usec>=1000000) {
 		tmp.tv_sec+=1;
 		tmp.tv_usec-=1000000;
@@ -108,15 +108,15 @@ struct timeval calc_expire(int sec,int usec)
 }
 
 
-void add_signal(struct signal_t *signal)
+void add_signal(struct wand_signal_t *signal)
 {
-       	struct signal_t *siglist;
+       	struct wand_signal_t *siglist;
 	
 	assert(signal->signum>0);
 
         if (signal->signum > maxsig) {
                 signals=realloc(signals,
-			sizeof(struct signal_t)*(signal->signum+1));
+			sizeof(struct wand_signal_t)*(signal->signum+1));
                 /* FIXME: Deal with OOM */
                 while(signal->signum > maxsig) {
                         signals[++maxsig]=NULL;
@@ -137,7 +137,7 @@ void add_signal(struct signal_t *signal)
 	signals[signal->signum] = signal;
 }
 
-void del_signal(struct signal_t *signal) 
+void del_signal(struct wand_signal_t *signal) 
 {
 	if (signal->prev)
 		signal->prev->next = signal->next;
@@ -159,9 +159,9 @@ void del_signal(struct signal_t *signal)
 			? (a).tv_usec - (b).tv_usec 	\
 			: (a).tv_sec - (b).tv_sec)
 
-void add_timer(struct timer_t *timer)
+void add_timer(struct wand_timer_t *timer)
 {
-	struct timer_t *tmp = timers_tail;
+	struct wand_timer_t *tmp = timers_tail;
 	assert(timer->expire.tv_sec>=0);
 	assert(timer->expire.tv_usec>=0);
 	assert(timer->expire.tv_usec<1000000);
@@ -205,7 +205,7 @@ void add_timer(struct timer_t *timer)
 
 }
 
-void del_timer(struct timer_t *timer)
+void del_timer(struct wand_timer_t *timer)
 {
 	assert(timer->prev!=(void*)0xdeadbeef);
 	assert(timer->next!=(void*)0xdeadbeef);
@@ -217,13 +217,13 @@ void del_timer(struct timer_t *timer)
 		timer->next->prev=timer->prev;
 }
 
-void add_event(struct fdcb_t *evcb)
+void add_event(struct wand_fdcb_t *evcb)
 {
 	assert(evcb->fd>=0);
 	assert(evcb->fd>=maxfd || events[evcb->fd]==NULL); /* can't add twice*/
 
 	if (evcb->fd>maxfd) {
-		events=realloc(events,sizeof(struct fdcb_t)*(evcb->fd+1));
+		events=realloc(events,sizeof(struct wand_fdcb_t)*(evcb->fd+1));
 		/* FIXME: Deal with OOM */
 		while(maxfd<evcb->fd) {
 			events[++maxfd]=NULL;
@@ -243,7 +243,7 @@ void add_event(struct fdcb_t *evcb)
 #endif
 }
 
-void del_event(struct fdcb_t *evcb)
+void del_event(struct wand_fdcb_t *evcb)
 {
 	assert(evcb->fd>=0);
 	assert(evcb->fd<=maxfd && events[evcb->fd]!=NULL);
@@ -258,16 +258,16 @@ void del_event(struct fdcb_t *evcb)
 
 void event_run()
 {
-	struct timer_t *tmp = 0;
+	struct wand_timer_t *tmp = 0;
 	struct timeval delay;
 	int fd;
 	int retval;
 	fd_set xrfd, xwfd, xxfd;
 	
-	while (running) {
-		gettimeofday(&now,NULL);
+	while (wand_event_running) {
+		gettimeofday(&wand_now,NULL);
 		/* Expire old timers */
-		while(timers && TV_CMP(now,timers->expire)>0) {
+		while(timers && TV_CMP(wand_now,timers->expire)>0) {
 			tmp=timers;
 			if (timers->next) {
 				timers->next->prev = timers->prev;
@@ -281,7 +281,7 @@ void event_run()
 			fprintf(stderr,"Timer expired\n");
 #endif
 			tmp->callback(tmp);
-			if (!running)
+			if (!wand_event_running)
 				return;
 		}
 		
@@ -290,8 +290,8 @@ void event_run()
 		xxfd = xfd;
 		sigprocmask(SIG_UNBLOCK, &active_sig, 0);
 		if (timers) {
-			delay.tv_sec = timers->expire.tv_sec - now.tv_sec;
-			delay.tv_usec = timers->expire.tv_usec - now.tv_usec;
+			delay.tv_sec = timers->expire.tv_sec - wand_now.tv_sec;
+			delay.tv_usec = timers->expire.tv_usec - wand_now.tv_usec;
 			if (delay.tv_usec<0) {
 				delay.tv_usec += 1000000;
 				--delay.tv_sec;
@@ -348,7 +348,7 @@ void Log(char *msg,...)
 
 void dump_state()
 {
-	struct timer_t *tmp;
+	struct wand_timer_t *tmp;
 	tmp=timers;
 	while(tmp) {
 		printf("%p %p %p %d.%06d %.02f\n",(void*)tmp,
@@ -356,7 +356,7 @@ void dump_state()
 				(void*)tmp->next,
 				tmp->expire.tv_sec,tmp->expire.tv_usec,
 				((float)tmp->expire.tv_sec+tmp->expire.tv_usec/1000000.0)-
-					((float)now.tv_sec+now.tv_usec/1000000.0));
+					((float)wand_now.tv_sec+wand_now.tv_usec/1000000.0));
 		tmp=tmp->next;
 	}
 }
