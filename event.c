@@ -91,7 +91,7 @@ int wand_init_event()
 	pipe_event.callback = pipe_read;
 	pipe_event.data = 0;
 
-	add_event(&pipe_event);
+	wand_add_event(&pipe_event);
 	return 1;
 }
 
