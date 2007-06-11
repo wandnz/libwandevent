@@ -56,7 +56,7 @@ void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
 	}
 }
 
-int init_event()
+int wand_init_event()
 {
 	FD_ZERO(&rfd);
 	FD_ZERO(&wfd);
@@ -95,7 +95,7 @@ int init_event()
 	return 1;
 }
 
-struct timeval calc_expire(int sec,int usec)
+struct timeval wand_calc_expire(int sec,int usec)
 {
 	struct timeval tmp;
 	tmp.tv_sec=wand_now.tv_sec+sec;
@@ -108,7 +108,7 @@ struct timeval calc_expire(int sec,int usec)
 }
 
 
-void add_signal(struct wand_signal_t *signal)
+void wand_add_signal(struct wand_signal_t *signal)
 {
        	struct wand_signal_t *siglist;
 	
@@ -137,7 +137,7 @@ void add_signal(struct wand_signal_t *signal)
 	signals[signal->signum] = signal;
 }
 
-void del_signal(struct wand_signal_t *signal) 
+void wand_del_signal(struct wand_signal_t *signal) 
 {
 	if (signal->prev)
 		signal->prev->next = signal->next;
@@ -159,7 +159,7 @@ void del_signal(struct wand_signal_t *signal)
 			? (a).tv_usec - (b).tv_usec 	\
 			: (a).tv_sec - (b).tv_sec)
 
-void add_timer(struct wand_timer_t *timer)
+void wand_add_timer(struct wand_timer_t *timer)
 {
 	struct wand_timer_t *tmp = timers_tail;
 	assert(timer->expire.tv_sec>=0);
@@ -205,7 +205,7 @@ void add_timer(struct wand_timer_t *timer)
 
 }
 
-void del_timer(struct wand_timer_t *timer)
+void wand_del_timer(struct wand_timer_t *timer)
 {
 	assert(timer->prev!=(void*)0xdeadbeef);
 	assert(timer->next!=(void*)0xdeadbeef);
@@ -217,7 +217,7 @@ void del_timer(struct wand_timer_t *timer)
 		timer->next->prev=timer->prev;
 }
 
-void add_event(struct wand_fdcb_t *evcb)
+void wand_add_event(struct wand_fdcb_t *evcb)
 {
 	assert(evcb->fd>=0);
 	assert(evcb->fd>=maxfd || events[evcb->fd]==NULL); /* can't add twice*/
@@ -243,7 +243,7 @@ void add_event(struct wand_fdcb_t *evcb)
 #endif
 }
 
-void del_event(struct wand_fdcb_t *evcb)
+void wand_del_event(struct wand_fdcb_t *evcb)
 {
 	assert(evcb->fd>=0);
 	assert(evcb->fd<=maxfd && events[evcb->fd]!=NULL);
@@ -256,7 +256,7 @@ void del_event(struct wand_fdcb_t *evcb)
 #endif
 }
 
-void event_run()
+void wand_event_run()
 {
 	struct wand_timer_t *tmp = 0;
 	struct timeval delay;

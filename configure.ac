@@ -1,4 +1,5 @@
 AC_INIT(libwandevent, 1.0.0, contact@wand.net.nz)
+AC_CONFIG_SRCDIR([event.c])
 AM_CONFIG_HEADER([config.h])
 
 AM_INIT_AUTOMAKE(libwandevent, 1.0.0)

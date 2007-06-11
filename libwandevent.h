@@ -53,15 +53,15 @@ struct wand_signal_t {
 	struct wand_signal_t *next;
 };
 
-int init_event(void);
-struct timeval calc_expire(int sec,int usec);
-void add_event(struct wand_fdcb_t *);
-void add_timer(struct wand_timer_t *);
-void add_signal(struct wand_signal_t *);
-void del_event(struct wand_fdcb_t *);
-void del_timer(struct wand_timer_t *);
-void del_signal(struct wand_signal_t *);
-void event_run(void);
+int wand_init_event(void);
+struct timeval wand_calc_expire(int sec,int usec);
+void wand_add_event(struct wand_fdcb_t *);
+void wand_add_timer(struct wand_timer_t *);
+void wand_add_signal(struct wand_signal_t *);
+void wand_del_event(struct wand_fdcb_t *);
+void wand_del_timer(struct wand_timer_t *);
+void wand_del_signal(struct wand_signal_t *);
+void wand_event_run(void);
 void Log(char *msg,...);
 
 extern bool wand_event_running;
