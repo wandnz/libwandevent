@@ -24,6 +24,10 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum wand_eventtype_t { 
 	EV_READ   = 1, 
 	EV_WRITE  = 2, 
@@ -66,5 +70,9 @@ void Log(char *msg,...);
 
 extern bool wand_event_running;
 extern struct timeval wand_now;
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif
