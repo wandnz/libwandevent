@@ -170,6 +170,8 @@ void wand_add_timer(struct wand_timer_t *timer)
 		timers_tail=timers=timer;
 		return;
 	}
+	assert(timer->prev == NULL);
+	assert(timers_tail->next == NULL);
 	
 	/* Doubly linked lists are annoying! */
 	/* FIXME: This code sucks ass */
@@ -268,6 +270,7 @@ void wand_event_run()
 		gettimeofday(&wand_now,NULL);
 		/* Expire old timers */
 		while(timers && TV_CMP(wand_now,timers->expire)>0) {
+			assert(timers->prev == NULL);
 			tmp=timers;
 			if (timers->next) {
 				timers->next->prev = timers->prev;
