@@ -340,12 +340,13 @@ void wand_event_run()
 			if ((events[fd]->flags & EV_READ) 
 					&& FD_ISSET(fd,&xrfd)) {
 				int data;
-				while (events[fd] && 
-						ioctl(fd,FIONREAD,&data)>0) {
+				do {
 					events[fd]->callback(
 							events[fd],
 							EV_READ);
-				}
+				} while (events[fd] && 
+						ioctl(fd,FIONREAD,&data)>=0 
+						&& data>0);
 				--retval;
 				if (!events[fd])
 					continue;
