@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdio.h>
+#include <sys/ioctl.h>
 
 #ifndef EVENT_DEBUG
 #define EVENT_DEBUG 0
@@ -293,9 +294,6 @@ void wand_event_run()
 				return;
 		}
 		
-		xrfd = rfd;
-		xwfd = wfd;
-		xxfd = xfd;
 		if (timers) {
 			delay.tv_sec = timers->expire.tv_sec - wand_now.tv_sec;
 			delay.tv_usec = timers->expire.tv_usec - wand_now.tv_usec;
@@ -309,6 +307,10 @@ void wand_event_run()
 		else {
 			delayp = NULL;
 		}
+
+		xrfd = rfd;
+		xwfd = wfd;
+		xxfd = xfd;
 
 		if (using_signals) {
 			sigprocmask(SIG_UNBLOCK, &active_sig, 0);
@@ -329,21 +331,37 @@ void wand_event_run()
 		}
 
 		/* TODO: check select's return */
-		for(fd=0;fd<=maxfd;++fd) {
+		for(fd=0;fd<=maxfd && retval>0;++fd) {
 			/* Skip fd's we don't have events for */
 			if (!events[fd])
 				continue;
 			assert(events[fd]->fd==fd);
 			/* This code makes me feel dirty */
 			if ((events[fd]->flags & EV_READ) 
-					&& FD_ISSET(fd,&xrfd))
-				events[fd]->callback(events[fd],EV_READ);
-			if (events[fd] && (events[fd]->flags & EV_WRITE) 
-					&& FD_ISSET(fd,&xwfd))
+					&& FD_ISSET(fd,&xrfd)) {
+				int data;
+				while (events[fd] && 
+						ioctl(fd,FIONREAD,&data)>0) {
+					events[fd]->callback(
+							events[fd],
+							EV_READ);
+				}
+				--retval;
+				if (!events[fd])
+					continue;
+			}
+			if ((events[fd]->flags & EV_WRITE) 
+					&& FD_ISSET(fd,&xwfd)) {
+				--retval;
 				events[fd]->callback(events[fd],EV_WRITE);
-			if (events[fd] && (events[fd]->flags & EV_EXCEPT) 
-					&& FD_ISSET(fd,&xxfd))
+				if (!events[fd])
+					continue;
+			}
+			if ((events[fd]->flags & EV_EXCEPT) 
+					&& FD_ISSET(fd,&xxfd)) {
 				events[fd]->callback(events[fd],EV_EXCEPT);
+				--retval;
+			}
 		}
 	}
 }
