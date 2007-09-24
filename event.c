@@ -21,15 +21,16 @@ static struct wand_timer_t *timers_tail;
 static struct wand_signal_t **signals;
 static int maxfd=-1;
 static int maxsig=-1;
+static bool using_signals;
 struct timeval wand_now;
 bool wand_event_running;
 
-int signal_pipe[2];
+static int signal_pipe[2];
 struct sigaction signal_event;
-sigset_t active_sig;
-struct wand_fdcb_t pipe_event;
+static sigset_t active_sig;
+static struct wand_fdcb_t pipe_event;
 
-struct sigaction default_sig;
+static struct sigaction default_sig;
 
 void event_sig_hdl(int signum) {
 	if (write(signal_pipe[1], &signum, 4) != 4) {
@@ -68,6 +69,7 @@ int wand_init_event()
 	maxsig = -1;
 	maxfd=-1;
 	wand_event_running=true;
+	using_signals = false;
 	gettimeofday(&wand_now,NULL);
 
 	sigemptyset(&active_sig);
@@ -113,6 +115,8 @@ void wand_add_signal(struct wand_signal_t *signal)
        	struct wand_signal_t *siglist;
 	
 	assert(signal->signum>0);
+
+	using_signals = true;
 
         if (signal->signum > maxsig) {
                 signals=realloc(signals,
@@ -265,6 +269,7 @@ void wand_event_run()
 	int fd;
 	int retval;
 	fd_set xrfd, xwfd, xxfd;
+	struct timeval *delayp;
 	
 	while (wand_event_running) {
 		gettimeofday(&wand_now,NULL);
@@ -291,7 +296,6 @@ void wand_event_run()
 		xrfd = rfd;
 		xwfd = wfd;
 		xxfd = xfd;
-		sigprocmask(SIG_UNBLOCK, &active_sig, 0);
 		if (timers) {
 			delay.tv_sec = timers->expire.tv_sec - wand_now.tv_sec;
 			delay.tv_usec = timers->expire.tv_usec - wand_now.tv_usec;
@@ -299,28 +303,31 @@ void wand_event_run()
 				delay.tv_usec += 1000000;
 				--delay.tv_sec;
 			}
-		
-			do {
-				retval = select(maxfd+1,
-						&xrfd,&xwfd,&xxfd,&delay);
-				if (retval == -1 && errno != EINTR) {
-					/* ERROR */
-					printf("Error in select\n");
-					return;
-				}
-			} while (retval == -1);
-		} else {
-			do {
-				retval = select(maxfd+1,&xrfd,
-						&xwfd,&xxfd,NULL);
-				if (retval == -1 && errno != EINTR) {
-					printf("Error in select\n");
-					return;
-				}
-			} while (retval == -1);
-		
+
+			delayp = &delay;
 		}
-		sigprocmask(SIG_BLOCK, &active_sig, 0);
+		else {
+			delayp = NULL;
+		}
+
+		if (using_signals) {
+			sigprocmask(SIG_UNBLOCK, &active_sig, 0);
+		}
+		
+		do {
+			retval = select(maxfd+1,
+					&xrfd,&xwfd,&xxfd,delayp);
+			if (retval == -1 && errno != EINTR) {
+				/* ERROR */
+				printf("Error in select\n");
+				return;
+			}
+		} while (retval == -1);
+
+		if (using_signals) {
+			sigprocmask(SIG_BLOCK, &active_sig, 0);
+		}
+
 		/* TODO: check select's return */
 		for(fd=0;fd<=maxfd;++fd) {
 			/* Skip fd's we don't have events for */
