@@ -10,99 +10,132 @@
 #include <errno.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
+#include <fcntl.h>
+
+#include <pthread.h>
 
 #ifndef EVENT_DEBUG
 #define EVENT_DEBUG 0
 #endif
 
-static fd_set rfd,wfd,xfd;
-static struct wand_fdcb_t **events;
-static struct wand_timer_t *timers;
-static struct wand_timer_t *timers_tail;
-static struct wand_signal_t **signals;
-static int maxfd=-1;
-static int maxsig=-1;
-static bool using_signals;
-struct timeval wand_now;
-bool wand_event_running;
-
-static int signal_pipe[2];
+int signal_pipe[2];
 struct sigaction signal_event;
-static sigset_t active_sig;
-static struct wand_fdcb_t pipe_event;
+sigset_t active_sig;
+struct wand_fdcb_t signal_pipe_event;
+struct sigaction default_sig;
+int maxsig;
+bool using_signals;
 
-static struct sigaction default_sig;
+struct wand_signal_t **signals;
+
+pthread_mutex_t signal_mutex;
 
 void event_sig_hdl(int signum) {
 	if (write(signal_pipe[1], &signum, 4) != 4) {
-		printf("error writing signum to pipe\n");
+		fprintf(stderr, "error writing signum to pipe\n");
 	}
 }
 
 void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
 	int signum = -1;
+	int ret = -1;
 	struct wand_signal_t *signal;
-	if (read(signal_pipe[0], &signum, 4) != 4) {
-		printf("error reading signum from pipe\n");
+	if ((ret = read(signal_pipe[0], &signum, 4)) != 4) {
+		if (ret == -1 && errno == EAGAIN) {
+			/* Another thread might have already read the signal */
+			return;
+		}
+			
+		fprintf(stderr, "error reading signum from pipe\n");
 		return;
 	}
 	
+	pthread_mutex_lock(&signal_mutex);
 	if (signum > maxsig) {
-		printf("signum %d > maxsig %d\n", signum, maxsig);
+		fprintf(stderr, "signum %d > maxsig %d\n", signum, maxsig);
+		pthread_mutex_unlock(&signal_mutex);
 		return;
 	}
 	signal = signals[signum];
-	while (signal != NULL) {
+	if (signal != NULL) {
 		signal->callback(signal);
-		signal = signal->next;
 	}
+	pthread_mutex_unlock(&signal_mutex);
 }
 
-int wand_init_event()
-{
-	FD_ZERO(&rfd);
-	FD_ZERO(&wfd);
-	FD_ZERO(&xfd);
-	events=NULL;
-	timers=NULL;
-	timers_tail=NULL;
-	signals = NULL;
-	maxsig = -1;
-	maxfd=-1;
-	wand_event_running=true;
-	using_signals = false;
-	gettimeofday(&wand_now,NULL);
-
-	sigemptyset(&active_sig);
+int wand_event_init() {
+	int fileflags;
+	sigemptyset(&(active_sig));
 	
 	signal_event.sa_handler = event_sig_hdl;
-	sigemptyset(&signal_event.sa_mask);
+	sigemptyset(&(signal_event.sa_mask));
 	signal_event.sa_flags = 0;
 	
 	default_sig.sa_handler = SIG_DFL;
-	sigemptyset(&default_sig.sa_mask);
+	sigemptyset(&(default_sig.sa_mask));
 	default_sig.sa_flags = 0;
 	
 	if (pipe(signal_pipe) != 0) {
-		printf("Error creating pipe\n");
+		fprintf(stderr, "Error creating signal event pipe\n");
 		return -1;
 	}
 	
-	/* Form evcb for signal_pipe[0] */
-	pipe_event.fd = signal_pipe[0];
-	pipe_event.flags = EV_READ;
-	pipe_event.callback = pipe_read;
-	pipe_event.data = 0;
+	if (fileflags = fcntl(signal_pipe[0], F_GETFL, 0) == -1) {
+		fprintf(stderr, "Failed to get flags for signal pipe\n");
+		return -1;
+	}
 
-	wand_add_event(&pipe_event);
+	if (fcntl(signal_pipe[0], F_SETFL, fileflags | O_NONBLOCK) == -1) {
+		fprintf(stderr, "Failed to set flags for signal pipe\n");
+		return -1;
+	}
+	
+	signal_pipe_event.fd = signal_pipe[0];
+	signal_pipe_event.flags = EV_READ;
+	signal_pipe_event.callback = pipe_read;
+	signal_pipe_event.data = 0;
+
+	signals = NULL;
+	maxsig = -1;
+	using_signals = false;
 	return 1;
 }
+	
 
-struct timeval wand_calc_expire(int sec,int usec)
+wand_event_handler_t * wand_create_event_handler()
+{
+	wand_event_handler_t *wand_ev;
+	wand_ev = (wand_event_handler_t *)malloc(sizeof(wand_event_handler_t));
+	
+	FD_ZERO(&(wand_ev->rfd));
+	FD_ZERO(&(wand_ev->wfd));
+	FD_ZERO(&(wand_ev->xfd));
+	
+	wand_ev->fd_events=NULL;
+	wand_ev->timers=NULL;
+	wand_ev->timers_tail=NULL;
+	wand_ev->maxfd=-1;
+	wand_ev->running=true;
+	gettimeofday(&(wand_ev->now),NULL);
+
+	/* Add an event to watch for signals */
+	wand_add_event(wand_ev, &(signal_pipe_event));
+	return wand_ev;
+}
+
+void wand_destroy_event_handler(wand_event_handler_t *wand_ev) {
+	
+	if (wand_ev->fd_events)
+		free(wand_ev->fd_events);
+	
+	free(wand_ev);
+}
+
+struct timeval wand_calc_expire(wand_event_handler_t *ev_hdl, int sec,int usec)
 {
 	struct timeval tmp;
-	tmp.tv_sec=wand_now.tv_sec+sec;
-	tmp.tv_usec=wand_now.tv_usec+usec;
+	tmp.tv_sec=ev_hdl->now.tv_sec+sec;
+	tmp.tv_usec=ev_hdl->now.tv_usec+usec;
 	if (tmp.tv_usec>=1000000) {
 		tmp.tv_sec+=1;
 		tmp.tv_usec-=1000000;
@@ -113,8 +146,9 @@ struct timeval wand_calc_expire(int sec,int usec)
 
 void wand_add_signal(struct wand_signal_t *signal)
 {
-       	struct wand_signal_t *siglist;
+	struct wand_signal_t *siglist;
 	
+	pthread_mutex_lock(&signal_mutex);
 	assert(signal->signum>0);
 
 	using_signals = true;
@@ -136,47 +170,53 @@ void wand_add_signal(struct wand_signal_t *signal)
 			printf("Error adding sigaction\n");
 		}
 		sigprocmask(SIG_BLOCK, &active_sig, 0);
+		signals[signal->signum] = signal;
+	} else {
+		/* This signal already has a callback for it */
+
 	}
-	signal->prev = NULL;
-	signal->next = siglist;
-	signals[signal->signum] = signal;
+	
+	pthread_mutex_unlock(&signal_mutex);
 }
 
 void wand_del_signal(struct wand_signal_t *signal) 
 {
-	if (signal->prev)
-		signal->prev->next = signal->next;
-	else
-		signals[signal->signum] = signal->next;
+	sigset_t removed;
+	
+	pthread_mutex_lock(&signal_mutex);
 
-	if (signal->next)
-		signal->next->prev = signal->prev;
-
-	if (signals[signal->signum] == NULL) {
+	if (signals[signal->signum] != NULL) {
 		sigdelset(&active_sig, signal->signum);
+		sigaddset(&removed, signal->signum);
 		if (sigaction(signal->signum, &default_sig, 0) < 0) {
-			printf("Error removing sigaction\n");
+			fprintf(stderr, "Error removing sigaction\n");
 		}
+		sigprocmask(SIG_UNBLOCK, &removed, 0);
+	} else {
+		/* No signal here? */
+
 	}
+	
+	pthread_mutex_unlock(&signal_mutex);
 }
 
 #define TV_CMP(a,b) ((a).tv_sec == (b).tv_sec 		\
 			? (a).tv_usec - (b).tv_usec 	\
 			: (a).tv_sec - (b).tv_sec)
 
-void wand_add_timer(struct wand_timer_t *timer)
+void wand_add_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 {
-	struct wand_timer_t *tmp = timers_tail;
+	struct wand_timer_t *tmp = ev_hdl->timers_tail;
 	assert(timer->expire.tv_sec>=0);
 	assert(timer->expire.tv_usec>=0);
 	assert(timer->expire.tv_usec<1000000);
-	if (timers==NULL) {
+	if (ev_hdl->timers==NULL) {
 		timer->prev = timer->next = NULL;
-		timers_tail=timers=timer;
+		ev_hdl->timers_tail=ev_hdl->timers=timer;
 		return;
 	}
 	assert(timer->prev == NULL);
-	assert(timers_tail->next == NULL);
+	assert(ev_hdl->timers_tail->next == NULL);
 	
 	/* Doubly linked lists are annoying! */
 	/* FIXME: This code sucks ass */
@@ -186,7 +226,7 @@ void wand_add_timer(struct wand_timer_t *timer)
 			if (tmp->next)
 				tmp->next->prev = timer;
 			else 
-				timers_tail = timer;
+				ev_hdl->timers_tail = timer;
 			timer->next = tmp->next;
 			timer->prev = tmp;
 			tmp->next = timer;
@@ -199,7 +239,7 @@ void wand_add_timer(struct wand_timer_t *timer)
 		if (tmp->next)
                 	tmp->next->prev = timer;
                 else
-                        timers_tail = timer;
+                        ev_hdl->timers_tail = timer;
                 timer->next = tmp->next;
                 timer->prev = tmp;
                 tmp->next = timer;
@@ -207,40 +247,42 @@ void wand_add_timer(struct wand_timer_t *timer)
 		tmp->prev = timer;
 		timer->next = tmp;
 		timer->prev = NULL;
-		timers = timer;
+		ev_hdl->timers = timer;
 	}
 
 }
 
-void wand_del_timer(struct wand_timer_t *timer)
+void wand_del_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 {
 	assert(timer->prev!=(void*)0xdeadbeef);
 	assert(timer->next!=(void*)0xdeadbeef);
 	if (timer->prev)
 		timer->prev->next=timer->next;
 	else
-		timers=timer->next;
+		ev_hdl->timers=timer->next;
 	if (timer->next)
 		timer->next->prev=timer->prev;
 }
 
-void wand_add_event(struct wand_fdcb_t *evcb)
+void wand_add_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *evcb)
 {
 	assert(evcb->fd>=0);
-	assert(evcb->fd>=maxfd || events[evcb->fd]==NULL); /* can't add twice*/
+	/* can't add twice*/
+	assert(evcb->fd>=ev_hdl->maxfd || ev_hdl->fd_events[evcb->fd]==NULL); 
 
-	if (evcb->fd>maxfd) {
-		events=realloc(events,sizeof(struct wand_fdcb_t)*(evcb->fd+1));
+	if (evcb->fd>ev_hdl->maxfd) {
+		ev_hdl->fd_events=realloc(ev_hdl->fd_events,
+				sizeof(struct wand_fdcb_t)*(evcb->fd+1));
 		/* FIXME: Deal with OOM */
-		while(maxfd<evcb->fd) {
-			events[++maxfd]=NULL;
+		while(ev_hdl->maxfd<evcb->fd) {
+			ev_hdl->fd_events[++(ev_hdl->maxfd)]=NULL;
 		}
-		maxfd=evcb->fd;
+		ev_hdl->maxfd=evcb->fd;
 	}
-	events[evcb->fd]=evcb;
-	if (evcb->flags & EV_READ)   FD_SET(evcb->fd,&rfd);
-	if (evcb->flags & EV_WRITE)  FD_SET(evcb->fd,&wfd);
-	if (evcb->flags & EV_EXCEPT) FD_SET(evcb->fd,&xfd);
+	ev_hdl->fd_events[evcb->fd]=evcb;
+	if (evcb->flags & EV_READ)   FD_SET(evcb->fd,&(ev_hdl->rfd));
+	if (evcb->flags & EV_WRITE)  FD_SET(evcb->fd,&(ev_hdl->wfd));
+	if (evcb->flags & EV_EXCEPT) FD_SET(evcb->fd,&(ev_hdl->xfd));
 #if EVENT_DEBUG
 	printf("New events for %d:",evcb->fd);
 	if (evcb->flags & EV_READ) printf(" read");
@@ -250,20 +292,22 @@ void wand_add_event(struct wand_fdcb_t *evcb)
 #endif
 }
 
-void wand_del_event(struct wand_fdcb_t *evcb)
+void wand_del_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *evcb)
 {
 	assert(evcb->fd>=0);
-	assert(evcb->fd<=maxfd && events[evcb->fd]!=NULL);
-	events[evcb->fd]=NULL;
-	if (evcb->flags & EV_READ)   FD_CLR(evcb->fd,&rfd);
-	if (evcb->flags & EV_WRITE)  FD_CLR(evcb->fd,&wfd);
-	if (evcb->flags & EV_EXCEPT) FD_CLR(evcb->fd,&xfd);
+	assert(evcb->fd<=ev_hdl->maxfd && ev_hdl->fd_events[evcb->fd]!=NULL);
+	ev_hdl->fd_events[evcb->fd]=NULL;
+	if (evcb->flags & EV_READ)   FD_CLR(evcb->fd,&(ev_hdl->rfd));
+	if (evcb->flags & EV_WRITE)  FD_CLR(evcb->fd,&(ev_hdl->wfd));
+	if (evcb->flags & EV_EXCEPT) FD_CLR(evcb->fd,&(ev_hdl->xfd));
 #if EVENT_DEBUG
 	printf("del events for %d\n",evcb->fd);
 #endif
 }
 
-void wand_event_run()
+#define NEXT_TIMER ev_hdl->timers
+
+void wand_event_run(wand_event_handler_t *ev_hdl)
 {
 	struct wand_timer_t *tmp = 0;
 	struct timeval delay;
@@ -271,32 +315,38 @@ void wand_event_run()
 	int retval;
 	fd_set xrfd, xwfd, xxfd;
 	struct timeval *delayp;
+	sigset_t current_sig;
 	
-	while (wand_event_running) {
-		gettimeofday(&wand_now,NULL);
+	while (ev_hdl->running) {
+		pthread_mutex_lock(&signal_mutex);
+		current_sig = active_sig;
+		pthread_mutex_unlock(&signal_mutex);
+		
+		gettimeofday(&ev_hdl->now,NULL);
 		/* Expire old timers */
-		while(timers && TV_CMP(wand_now,timers->expire)>0) {
-			assert(timers->prev == NULL);
-			tmp=timers;
-			if (timers->next) {
-				timers->next->prev = timers->prev;
+		while(NEXT_TIMER && TV_CMP(ev_hdl->now,NEXT_TIMER->expire)>0)
+		{
+			assert(NEXT_TIMER->prev == NULL);
+			tmp=NEXT_TIMER;
+			if (NEXT_TIMER->next) {
+				NEXT_TIMER->next->prev = NEXT_TIMER->prev;
 			}
-			timers=timers->next;
-			if (timers==NULL)
-				timers_tail=NULL;
+			NEXT_TIMER=NEXT_TIMER->next;
+			if (NEXT_TIMER == NULL)
+				ev_hdl->timers_tail=NULL;
 			tmp->prev=(void*)0xdeadbeef;
 			tmp->next=(void*)0xdeadbeef;
 #if EVENT_DEBUG
 			fprintf(stderr,"Timer expired\n");
 #endif
 			tmp->callback(tmp);
-			if (!wand_event_running)
+			if (!ev_hdl->running)
 				return;
 		}
 		
-		if (timers) {
-			delay.tv_sec = timers->expire.tv_sec - wand_now.tv_sec;
-			delay.tv_usec = timers->expire.tv_usec - wand_now.tv_usec;
+		if (NEXT_TIMER) {
+			delay.tv_sec = NEXT_TIMER->expire.tv_sec - ev_hdl->now.tv_sec;
+			delay.tv_usec = NEXT_TIMER->expire.tv_usec - ev_hdl->now.tv_usec;
 			if (delay.tv_usec<0) {
 				delay.tv_usec += 1000000;
 				--delay.tv_sec;
@@ -308,16 +358,16 @@ void wand_event_run()
 			delayp = NULL;
 		}
 
-		xrfd = rfd;
-		xwfd = wfd;
-		xxfd = xfd;
+		xrfd = ev_hdl->rfd;
+		xwfd = ev_hdl->wfd;
+		xxfd = ev_hdl->xfd;
 
 		if (using_signals) {
-			sigprocmask(SIG_UNBLOCK, &active_sig, 0);
+			sigprocmask(SIG_UNBLOCK, &current_sig, 0);
 		}
 		
 		do {
-			retval = select(maxfd+1,
+			retval = select(ev_hdl->maxfd+1,
 					&xrfd,&xwfd,&xxfd,delayp);
 			if (retval == -1 && errno != EINTR) {
 				/* ERROR */
@@ -327,46 +377,51 @@ void wand_event_run()
 		} while (retval == -1);
 
 		if (using_signals) {
-			sigprocmask(SIG_BLOCK, &active_sig, 0);
+			sigprocmask(SIG_BLOCK, &current_sig, 0);
 		}
 
 		/* TODO: check select's return */
-		for(fd=0;fd<=maxfd && retval>0;++fd) {
+		for(fd=0;fd<=ev_hdl->maxfd && retval>0;++fd) {
 			/* Skip fd's we don't have events for */
-			if (!events[fd])
+			if (!ev_hdl->fd_events[fd])
 				continue;
-			assert(events[fd]->fd==fd);
+			assert(ev_hdl->fd_events[fd]->fd==fd);
 			/* This code makes me feel dirty */
-			if ((events[fd]->flags & EV_READ) 
+			if ((ev_hdl->fd_events[fd]->flags & EV_READ) 
 					&& FD_ISSET(fd,&xrfd)) {
 				int data;
 				do {
-					events[fd]->callback(
-							events[fd],
+					ev_hdl->fd_events[fd]->callback(
+							ev_hdl->fd_events[fd],
 							EV_READ);
-				} while (events[fd] && 
+				} while (ev_hdl->fd_events[fd] && 
 						ioctl(fd,FIONREAD,&data)>=0 
 						&& data>0);
 				--retval;
-				if (!events[fd])
+				if (!ev_hdl->fd_events[fd])
 					continue;
 			}
-			if ((events[fd]->flags & EV_WRITE) 
+			if ((ev_hdl->fd_events[fd]->flags & EV_WRITE) 
 					&& FD_ISSET(fd,&xwfd)) {
 				--retval;
-				events[fd]->callback(events[fd],EV_WRITE);
-				if (!events[fd])
+				ev_hdl->fd_events[fd]->callback(
+						ev_hdl->fd_events[fd],
+						EV_WRITE);
+				if (!ev_hdl->fd_events[fd])
 					continue;
 			}
-			if ((events[fd]->flags & EV_EXCEPT) 
+			if ((ev_hdl->fd_events[fd]->flags & EV_EXCEPT) 
 					&& FD_ISSET(fd,&xxfd)) {
-				events[fd]->callback(events[fd],EV_EXCEPT);
+				ev_hdl->fd_events[fd]->callback(
+						ev_hdl->fd_events[fd],
+						EV_EXCEPT);
 				--retval;
 			}
 		}
 	}
 }
 
+#if 0
 void Log(char *msg,...)
 {
 	va_list va;
@@ -390,3 +445,4 @@ void dump_state()
 	}
 }
 
+#endif

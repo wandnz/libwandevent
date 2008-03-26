@@ -53,23 +53,38 @@ struct wand_signal_t {
 	int signum;
 	void (*callback)(struct wand_signal_t *signal);
 	void *data;
-	struct wand_signal_t *prev;
-	struct wand_signal_t *next;
+	//struct wand_signal_t *prev;
+	//struct wand_signal_t *next;
 };
 
-int wand_init_event(void);
-struct timeval wand_calc_expire(int sec,int usec);
-void wand_add_event(struct wand_fdcb_t *);
-void wand_add_timer(struct wand_timer_t *);
-void wand_add_signal(struct wand_signal_t *);
-void wand_del_event(struct wand_fdcb_t *);
-void wand_del_timer(struct wand_timer_t *);
-void wand_del_signal(struct wand_signal_t *);
-void wand_event_run(void);
-void Log(char *msg,...);
+typedef struct wand_event_handler_t {
+	fd_set rfd;		/* select fdsets */
+	fd_set wfd;
+	fd_set xfd;		
+	
+	struct wand_fdcb_t **fd_events;	
+	struct wand_timer_t *timers;	
+	struct wand_timer_t *timers_tail;
 
-extern bool wand_event_running;
-extern struct timeval wand_now;
+	int maxfd;
+	struct timeval now;
+	bool running;
+
+} wand_event_handler_t;
+
+int wand_event_init(void);
+wand_event_handler_t * wand_create_event_handler(void);
+void wand_destroy_event_handler(wand_event_handler_t *wand_ev);
+struct timeval wand_calc_expire(wand_event_handler_t *ev_hdl, int sec,int usec);
+void wand_add_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *);
+void wand_add_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *);
+void wand_add_signal(struct wand_signal_t *);
+void wand_del_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *);
+void wand_del_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *);
+void wand_del_signal(struct wand_signal_t *);
+void wand_event_run(wand_event_handler_t *ev_hdl);
+//void Log(char *msg,...);
+
 
 #ifdef __cplusplus
 } /* extern "C" */
