@@ -18,6 +18,10 @@ AC_CHECK_HEADERS([inttypes.h stddef.h stdlib.h string.h syslog.h unistd.h])
 AC_C_CONST
 AC_TYPE_SIZE_T
 
+if test "$GCC" = "yes"; then
+	CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes"
+fi
+
 # Checks for library functions.
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([memset strdup])

@@ -30,13 +30,13 @@ struct wand_signal_t **signals;
 
 pthread_mutex_t signal_mutex;
 
-void event_sig_hdl(int signum) {
+static void event_sig_hdl(int signum) {
 	if (write(signal_pipe[1], &signum, 4) != 4) {
 		fprintf(stderr, "error writing signum to pipe\n");
 	}
 }
 
-void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
+static void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
 	int signum = -1;
 	int ret = -1;
 	struct wand_signal_t *signal;
@@ -80,7 +80,7 @@ int wand_event_init() {
 		return -1;
 	}
 	
-	if (fileflags = fcntl(signal_pipe[0], F_GETFL, 0) == -1) {
+	if ((fileflags = fcntl(signal_pipe[0], F_GETFL, 0)) == -1) {
 		fprintf(stderr, "Failed to get flags for signal pipe\n");
 		return -1;
 	}
@@ -116,7 +116,7 @@ wand_event_handler_t * wand_create_event_handler()
 	wand_ev->timers_tail=NULL;
 	wand_ev->maxfd=-1;
 	wand_ev->running=true;
-	gettimeofday(&(wand_ev->now),NULL);
+	wand_ev->walltimeok=false;
 
 	/* Add an event to watch for signals */
 	wand_add_event(wand_ev, &(signal_pipe_event));
@@ -134,8 +134,9 @@ void wand_destroy_event_handler(wand_event_handler_t *wand_ev) {
 struct timeval wand_calc_expire(wand_event_handler_t *ev_hdl, int sec,int usec)
 {
 	struct timeval tmp;
-	tmp.tv_sec=ev_hdl->now.tv_sec+sec;
-	tmp.tv_usec=ev_hdl->now.tv_usec+usec;
+	tmp = wand_get_monotonictime(ev_hdl);
+	tmp.tv_sec+=sec;
+	tmp.tv_usec+=usec;
 	if (tmp.tv_usec>=1000000) {
 		tmp.tv_sec+=1;
 		tmp.tv_usec-=1000000;
@@ -307,6 +308,36 @@ void wand_del_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *evcb)
 
 #define NEXT_TIMER ev_hdl->timers
 
+/* Since requiring the walltime now is optional (you probably want to be using
+ * the monotonic clock for stuff), we only update it when we need it.
+ */
+struct timeval wand_get_walltime(wand_event_handler_t *ev_hdl)
+{
+	if (!ev_hdl->walltimeok) {
+		gettimeofday(&ev_hdl->walltime,NULL);
+		ev_hdl->walltimeok=true;
+	}
+
+	return ev_hdl->walltime;
+}
+
+struct timeval wand_get_monotonictime(wand_event_handler_t *ev_hdl)
+{
+#ifdef _POSIX_MONOTONIC_CLOCK
+	struct timespec ts;
+	if (!ev_hdl->monotonictimeok) {
+		clock_gettime(CLOCK_MONOTONIC,&ts);
+		ev_hdl->monotonictime.tv_sec = ts.tv_sec;
+		/* Convert from nanoseconds to microseconds */
+		ev_hdl->monotonictime.tv_usec = ts.tv_nsec/1000;
+		ev_hdl->monotonictimeok=true;
+	}
+	return ev_hdl->monotonictime;
+#else
+	return wand_get_wallclocktime();
+#endif
+}
+
 void wand_event_run(wand_event_handler_t *ev_hdl)
 {
 	struct wand_timer_t *tmp = 0;
@@ -316,15 +347,22 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 	fd_set xrfd, xwfd, xxfd;
 	struct timeval *delayp;
 	sigset_t current_sig;
+	struct timespec monotime;
 	
 	while (ev_hdl->running) {
 		pthread_mutex_lock(&signal_mutex);
 		current_sig = active_sig;
 		pthread_mutex_unlock(&signal_mutex);
+
 		
-		gettimeofday(&ev_hdl->now,NULL);
+		/* Invalidate the clocks */
+		ev_hdl->walltimeok=false;
+		ev_hdl->monotonictimeok=false;
+		/* Force the monotonic clock up to date */
+		wand_get_monotonictime(ev_hdl);
 		/* Expire old timers */
-		while(NEXT_TIMER && TV_CMP(ev_hdl->now,NEXT_TIMER->expire)>0)
+		while(NEXT_TIMER && 
+			TV_CMP(ev_hdl->monotonictime, NEXT_TIMER->expire)>0)
 		{
 			assert(NEXT_TIMER->prev == NULL);
 			tmp=NEXT_TIMER;
@@ -345,8 +383,8 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 		}
 		
 		if (NEXT_TIMER) {
-			delay.tv_sec = NEXT_TIMER->expire.tv_sec - ev_hdl->now.tv_sec;
-			delay.tv_usec = NEXT_TIMER->expire.tv_usec - ev_hdl->now.tv_usec;
+			delay.tv_sec = NEXT_TIMER->expire.tv_sec - ev_hdl->monotonictime.tv_sec;
+			delay.tv_usec = NEXT_TIMER->expire.tv_usec - ev_hdl->monotonictime.tv_usec;
 			if (delay.tv_usec<0) {
 				delay.tv_usec += 1000000;
 				--delay.tv_sec;

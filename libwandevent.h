@@ -67,7 +67,10 @@ typedef struct wand_event_handler_t {
 	struct wand_timer_t *timers_tail;
 
 	int maxfd;
-	struct timeval now;
+	bool walltimeok;
+	struct timeval walltime;
+	bool monotonictimeok;
+	struct timeval monotonictime;
 	bool running;
 
 } wand_event_handler_t;
@@ -83,6 +86,8 @@ void wand_del_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *);
 void wand_del_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *);
 void wand_del_signal(struct wand_signal_t *);
 void wand_event_run(wand_event_handler_t *ev_hdl);
+struct timeval wand_get_walltime(wand_event_handler_t *ev_hdl);
+struct timeval wand_get_monotonictime(wand_event_handler_t *ev_hdl);
 //void Log(char *msg,...);
 
 
