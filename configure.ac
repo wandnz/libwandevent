@@ -13,7 +13,7 @@ AC_PROG_LIBTOOL
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([inttypes.h stddef.h stdlib.h string.h syslog.h unistd.h])
-
+AC_CHECK_LIB([rt], [clock_gettime])
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
