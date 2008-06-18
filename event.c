@@ -117,7 +117,8 @@ wand_event_handler_t * wand_create_event_handler()
 	wand_ev->maxfd=-1;
 	wand_ev->running=true;
 	wand_ev->walltimeok=false;
-
+	wand_ev->monotonictimeok=false;
+	
 	/* Add an event to watch for signals */
 	wand_add_event(wand_ev, &(signal_pipe_event));
 	return wand_ev;
@@ -263,6 +264,10 @@ void wand_del_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 		ev_hdl->timers=timer->next;
 	if (timer->next)
 		timer->next->prev=timer->prev;
+
+	if (ev_hdl->timers_tail == timer) {
+		ev_hdl->timers_tail = timer->prev;
+	}
 }
 
 void wand_add_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *evcb)
