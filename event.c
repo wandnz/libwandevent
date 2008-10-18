@@ -223,7 +223,7 @@ void wand_add_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 	/* Doubly linked lists are annoying! */
 	/* FIXME: This code sucks ass */
 	while(tmp->prev) {
-		if (TV_CMP(tmp->expire, timer->expire) < 0) {
+		if (TV_CMP(tmp->expire, timer->expire) <= 0) {
 			/* insert */
 			if (tmp->next)
 				tmp->next->prev = timer;
