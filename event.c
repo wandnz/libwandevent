@@ -328,7 +328,7 @@ struct timeval wand_get_walltime(wand_event_handler_t *ev_hdl)
 
 struct timeval wand_get_monotonictime(wand_event_handler_t *ev_hdl)
 {
-#ifdef _POSIX_MONOTONIC_CLOCK
+#if defined _POSIX_MONOTONIC_CLOCK && (_POSIX_MONOTONIC_CLOCK > -1)
 	struct timespec ts;
 	if (!ev_hdl->monotonictimeok) {
 		clock_gettime(CLOCK_MONOTONIC,&ts);
@@ -339,7 +339,8 @@ struct timeval wand_get_monotonictime(wand_event_handler_t *ev_hdl)
 	}
 	return ev_hdl->monotonictime;
 #else
-	return wand_get_wallclocktime();
+#warning "No monotonic clock support on this system"
+	return wand_get_walltime(ev_hdl);
 #endif
 }
 
@@ -352,7 +353,6 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 	fd_set xrfd, xwfd, xxfd;
 	struct timeval *delayp;
 	sigset_t current_sig;
-	struct timespec monotime;
 	
 	while (ev_hdl->running) {
 		pthread_mutex_lock(&signal_mutex);
