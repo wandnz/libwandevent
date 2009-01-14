@@ -358,11 +358,7 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 		pthread_mutex_lock(&signal_mutex);
 		current_sig = active_sig;
 		pthread_mutex_unlock(&signal_mutex);
-
 		
-		/* Invalidate the clocks */
-		ev_hdl->walltimeok=false;
-		ev_hdl->monotonictimeok=false;
 		/* Force the monotonic clock up to date */
 		wand_get_monotonictime(ev_hdl);
 		/* Expire old timers */
@@ -419,6 +415,10 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 			}
 		} while (retval == -1);
 
+		/* Invalidate the clocks */
+		ev_hdl->walltimeok=false;
+		ev_hdl->monotonictimeok=false;
+		
 		if (using_signals) {
 			sigprocmask(SIG_BLOCK, &current_sig, 0);
 		}
