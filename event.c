@@ -1,3 +1,37 @@
+/*
+ * This file is part of libwandevent
+ *
+ * Copyright (c) 2009 The University of Waikato, Hamilton, New Zealand.
+ *
+ * Authors: Perry Lorier
+ * 	    Shane Alcock
+ *
+ * All rights reserved.
+ *
+ * This code has been developed by the University of Waikato WAND research
+ * group. For further information, please see http://www.wand.net.nz/
+ *
+ * libwandevent is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License (GPL) as
+ * published by the Free Software Foundation; either version 2 of the License,
+ * or (at your option) any later version.
+ *
+ * libwandevent is distributed in the hope that it will be useful but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with libwandevent; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place, Suite 330, Boston, MA  0211-1307  USA
+ *
+ * Any feedback (bug reports, suggestions, complaints) should be sent to
+ * contact@wand.net.nz
+ *
+ * $Id$
+ *
+ */
+
 /* select() event loop */
 #include <sys/select.h>
 #include <assert.h>
@@ -464,28 +498,3 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 	}
 }
 
-#if 0
-void Log(char *msg,...)
-{
-	va_list va;
-	va_start(va,msg);
-	vprintf(msg,va);
-	va_end(va);
-}
-
-void dump_state()
-{
-	struct wand_timer_t *tmp;
-	tmp=timers;
-	while(tmp) {
-		printf("%p %p %p %d.%06d %.02f\n",(void*)tmp,
-				(void*)tmp->prev,
-				(void*)tmp->next,
-				tmp->expire.tv_sec,tmp->expire.tv_usec,
-				((float)tmp->expire.tv_sec+tmp->expire.tv_usec/1000000.0)-
-					((float)wand_now.tv_sec+wand_now.tv_usec/1000000.0));
-		tmp=tmp->next;
-	}
-}
-
-#endif

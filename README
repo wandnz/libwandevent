@@ -1,0 +1,43 @@
+Libwandevent -  A handy event-handling environment used by a variety of 
+		software developed by the WAND Group at the University of 
+		Waikato, New Zealand.
+
+------------------------------------------------------------------------------
+Libwandevent is Copyright (c) 2009 The University of Waikato, Hamilton, 
+New Zealand. All rights reserved.
+
+This code has been developed by the University of Waikato WAND research group.
+For further information, please see http://www.wand.net.nz/.
+------------------------------------------------------------------------------
+
+Installation instructions for this library can be found in INSTALL.
+
+This directory contains source code for libwandevent, a userspace library
+that provides an API for developing event-driven programs.
+
+The primary idea behind the design of libwandevent is that the user program
+will register an event, providing libwandevent with a function that is to
+be called should that event occur. All of the code to deal with things such
+as select(), timeouts and signal handling is contained within libwandevent,
+leaving the programmer free to concentrate on the details of what their
+program needs to do when the event occurs, rather than checking for the
+occurence of the event.
+
+Events can be registered on:
+	file descriptors (read events, write events or both)
+	timers (N seconds from the time the event was registered)
+	signals (whenever signal X occurs)
+
+We expect that most users of libwandevent are only installing it because it
+is required to use some other piece of WAND software. However, if you wish
+to use it yourself to develop event-driven programs, feel free to do so.
+However, be aware that the API documentation may not be up to our usual 
+standard! 
+
+Libwandevent is licensed under the GNU General Public License (GPL) version 2.
+Please see the include file COPYING for details of this license.
+
+For further information, please contact the WAND Group - see 
+http://www.wand.net.nz/ for details or email contact@wand.net.nz
+
+		

@@ -1,23 +1,35 @@
 /*
- * This file is part of wdcap
+ * This file is part of libwandevent
  *
- * Copyright (c) 2004-2006 The University of Waikato, Hamilton, New Zealand.
- * Authors: Daniel Lawson
+ * Copyright (c) 2009 The University of Waikato, Hamilton, New Zealand.
+ *
+ * Authors: Perry Lorier
  *          Shane Alcock
- *          Perry Lorier
  *
  * All rights reserved.
  *
- * This code has been developed by the University of Waikato WAND
- * research group. For further information please see http://www.wand.net.nz/
+ * This code has been developed by the University of Waikato WAND research
+ * group. For further information, please see http://www.wand.net.nz/
  *
- * This source code is proprietary to the University of Waikato
- * WAND research group and may not be redistributed, published or disclosed
- * without prior permission from WAND.
+ * libwandevent is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License (GPL) as
+ * published by the Free Software Foundation; either version 2 of the License,
+ * or (at your option) any later version.
  *
- * Report any bugs, questions or comments to contact@wand.net.nz
+ * libwandevent is distributed in the hope that it will be useful but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
  *
- * $Id: event.h 72 2006-06-23 03:38:58Z spa1 $
+ * You should have received a copy of the GNU General Public License along
+ * with libwandevent; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place, Suite 330, Boston, MA  0211-1307  USA
+ *
+ * Any feedback (bug reports, suggestions, complaints) should be sent to
+ * contact@wand.net.nz
+ *
+ * $Id$
+ *
  */
 #ifndef EVENT_H
 #define EVENT_H
@@ -53,8 +65,6 @@ struct wand_signal_t {
 	int signum;
 	void (*callback)(struct wand_signal_t *signal);
 	void *data;
-	//struct wand_signal_t *prev;
-	//struct wand_signal_t *next;
 };
 
 typedef struct wand_event_handler_t {
@@ -88,7 +98,6 @@ void wand_del_signal(struct wand_signal_t *);
 void wand_event_run(wand_event_handler_t *ev_hdl);
 struct timeval wand_get_walltime(wand_event_handler_t *ev_hdl);
 struct timeval wand_get_monotonictime(wand_event_handler_t *ev_hdl);
-//void Log(char *msg,...);
 
 
 #ifdef __cplusplus
