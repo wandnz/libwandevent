@@ -1,3 +1,19 @@
+The Short Version
+=================
+
+./configure
+make
+make install
+
+The default installation location for the library will be /usr/local/. If
+you wish to install anywhere else, e.g. you do not have root privileges, you
+will need to add "--prefix=<new location>" to the end of the ./configure 
+(without the quotes). 
+
+More detailed installation instructions (courtesy of the Free Software
+Foundation) follow.
+
+
 Installation Instructions
 *************************
 
