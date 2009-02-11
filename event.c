@@ -52,24 +52,36 @@
 #define EVENT_DEBUG 0
 #endif
 
+/* We use global variables and a mutex to handle signal events, as it just
+ * turns out to be a pain to deal with it all using the event handler 
+ * structure */
 int signal_pipe[2];
 struct sigaction signal_event;
 sigset_t active_sig;
 struct wand_fdcb_t signal_pipe_event;
 struct sigaction default_sig;
 int maxsig;
-bool using_signals;
+bool using_signals = false;
 
 struct wand_signal_t **signals;
 
 pthread_mutex_t signal_mutex;
 
+/* This is our actual signal handler. All it does is write the signal number
+ * into the signal pipe we created earlier. This will trigger an fd event on
+ * the pipe, which we can use to trigger the event outside of the signal 
+ * interrupt (because doing things for any length of time inside a signal
+ * interrupt is very bad!) */
 static void event_sig_hdl(int signum) {
 	if (write(signal_pipe[1], &signum, 4) != 4) {
 		fprintf(stderr, "error writing signum to pipe\n");
 	}
 }
 
+/* Callback function for an event on the signal pipe. If this event fires,
+ * it means that a signal has occurred. The signal number will have been
+ * written to the pipe, so we can just read it out and call the appropriate
+ * callback for that signal number */
 static void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
 	int signum = -1;
 	int ret = -1;
@@ -84,6 +96,8 @@ static void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
 		return;
 	}
 	
+	/* Don't let any threaded programs mess with our set of signal
+	 * events while we're trying to invoke callbacks */
 	pthread_mutex_lock(&signal_mutex);
 	if (signum > maxsig) {
 		fprintf(stderr, "signum %d > maxsig %d\n", signum, maxsig);
@@ -97,6 +111,9 @@ static void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
 	pthread_mutex_unlock(&signal_mutex);
 }
 
+/* Primarily, this function initialises the signal pipe and the signal
+ * handler, but it should always be called prior to doing any libwandevent
+ * stuff. */
 int wand_event_init() {
 	int fileflags;
 	sigemptyset(&(active_sig));
@@ -135,7 +152,8 @@ int wand_event_init() {
 	return 1;
 }
 	
-
+/* Creates an event handler environment and initialises all the "global"
+ * variables associated with it */
 wand_event_handler_t * wand_create_event_handler()
 {
 	wand_event_handler_t *wand_ev;
@@ -158,6 +176,7 @@ wand_event_handler_t * wand_create_event_handler()
 	return wand_ev;
 }
 
+/* Frees all the resources associated with an event handler */
 void wand_destroy_event_handler(wand_event_handler_t *wand_ev) {
 	
 	if (wand_ev->fd_events)
@@ -166,6 +185,9 @@ void wand_destroy_event_handler(wand_event_handler_t *wand_ev) {
 	free(wand_ev);
 }
 
+/* Returns a timeval that is sec.usec seconds from the current monotonic time.
+ * This timeval can be plugged directly into a wand_timer_t to set up the
+ * expiry time for a timer event */
 struct timeval wand_calc_expire(wand_event_handler_t *ev_hdl, int sec,int usec)
 {
 	struct timeval tmp;
@@ -180,10 +202,12 @@ struct timeval wand_calc_expire(wand_event_handler_t *ev_hdl, int sec,int usec)
 }
 
 
+/* Registers a new signal event. */
 void wand_add_signal(struct wand_signal_t *signal)
 {
 	struct wand_signal_t *siglist;
 	
+	/* Don't forget to grab the mutex, because we're not thread-safe */
 	pthread_mutex_lock(&signal_mutex);
 	assert(signal->signum>0);
 
@@ -215,6 +239,7 @@ void wand_add_signal(struct wand_signal_t *signal)
 	pthread_mutex_unlock(&signal_mutex);
 }
 
+/* Cancels a signal event */
 void wand_del_signal(struct wand_signal_t *signal) 
 {
 	sigset_t removed;
@@ -240,6 +265,7 @@ void wand_del_signal(struct wand_signal_t *signal)
 			? (a).tv_usec - (b).tv_usec 	\
 			: (a).tv_sec - (b).tv_sec)
 
+/* Registers a timer event */
 void wand_add_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 {
 	struct wand_timer_t *tmp = ev_hdl->timers_tail;
@@ -288,6 +314,7 @@ void wand_add_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 
 }
 
+/* Cancels a timer event */
 void wand_del_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 {
 	assert(timer->prev!=(void*)0xdeadbeef);
@@ -304,6 +331,7 @@ void wand_del_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 	}
 }
 
+/* Adds a file descriptor event */
 void wand_add_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *evcb)
 {
 	assert(evcb->fd>=0);
@@ -332,6 +360,7 @@ void wand_add_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *evcb)
 #endif
 }
 
+/* Cancels a file descriptor event */
 void wand_del_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *evcb)
 {
 	assert(evcb->fd>=0);
@@ -378,6 +407,10 @@ struct timeval wand_get_monotonictime(wand_event_handler_t *ev_hdl)
 #endif
 }
 
+/* Starts up the event handler. Essentially, the event handler will loop
+ * infinitely until an error occurs or an event callback sets the running
+ * variable to false.
+ */
 void wand_event_run(wand_event_handler_t *ev_hdl)
 {
 	struct wand_timer_t *tmp = 0;
@@ -395,7 +428,8 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 		
 		/* Force the monotonic clock up to date */
 		wand_get_monotonictime(ev_hdl);
-		/* Expire old timers */
+
+		/* Check for timer events that have fired */
 		while(NEXT_TIMER && 
 			TV_CMP(ev_hdl->monotonictime, NEXT_TIMER->expire)>0)
 		{
@@ -417,6 +451,8 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 				return;
 		}
 		
+		/* We want our upcoming select() to finish before the next 
+		 * timer event is due to fire */
 		if (NEXT_TIMER) {
 			delay.tv_sec = NEXT_TIMER->expire.tv_sec - ev_hdl->monotonictime.tv_sec;
 			delay.tv_usec = NEXT_TIMER->expire.tv_usec - ev_hdl->monotonictime.tv_usec;
@@ -428,6 +464,7 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 			delayp = &delay;
 		}
 		else {
+			/* No outstanding timers, so we can wait forever! */
 			delayp = NULL;
 		}
 
@@ -435,10 +472,15 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 		xwfd = ev_hdl->wfd;
 		xxfd = ev_hdl->xfd;
 
+		/* Because we can handle our signal events via an fd event,
+		 * we only want to allow signal interrupts while we're 
+		 * capable of triggering fd events. */
 		if (using_signals) {
 			sigprocmask(SIG_UNBLOCK, &current_sig, 0);
 		}
 		
+		/* This select will wait for the next fd event to occur, or
+		 * for the next timer to be ready to fire */
 		do {
 			retval = select(ev_hdl->maxfd+1,
 					&xrfd,&xwfd,&xxfd,delayp);
@@ -453,10 +495,14 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 		ev_hdl->walltimeok=false;
 		ev_hdl->monotonictimeok=false;
 		
+		/* Block all signal interrupts for signals that we are
+		 * handling again */
 		if (using_signals) {
 			sigprocmask(SIG_BLOCK, &current_sig, 0);
 		}
 
+		/* Invoke the callbacks for any fd events that were 
+		 * triggered during the select() above */
 		/* TODO: check select's return */
 		for(fd=0;fd<=ev_hdl->maxfd && retval>0;++fd) {
 			/* Skip fd's we don't have events for */
