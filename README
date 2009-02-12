@@ -30,9 +30,7 @@ Events can be registered on:
 
 We expect that most users of libwandevent are only installing it because it
 is required to use some other piece of WAND software. However, if you wish
-to use it yourself to develop event-driven programs, feel free to do so.
-However, be aware that the API documentation may not be up to our usual 
-standard! 
+to use it yourself to develop event-driven programs, feel free to do so. 
 
 Libwandevent is licensed under the GNU General Public License (GPL) version 2.
 Please see the include file COPYING for details of this license.
