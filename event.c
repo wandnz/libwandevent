@@ -111,6 +111,15 @@ static void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
 	pthread_mutex_unlock(&signal_mutex);
 }
 
+static void set_close_on_exec(int fd)
+{
+	int fileflags;
+	if ((fileflags = fcntl(fd, F_GETFD, 0)) == -1) {
+		return;
+	}
+	fcntl(fd, F_SETFD, fileflags | FD_CLOEXEC);
+}
+
 /* Primarily, this function initialises the signal pipe and the signal
  * handler, but it should always be called prior to doing any libwandevent
  * stuff. */
@@ -136,10 +145,15 @@ int wand_event_init() {
 		return -1;
 	}
 
-	if (fcntl(signal_pipe[0], F_SETFL, fileflags | O_NONBLOCK) == -1) {
+	if (fcntl(signal_pipe[0], F_SETFL, 
+			fileflags | O_NONBLOCK) == -1) {
 		fprintf(stderr, "Failed to set flags for signal pipe\n");
 		return -1;
 	}
+
+	set_close_on_exec(signal_pipe[0]);
+	set_close_on_exec(signal_pipe[1]);
+
 	
 	signal_pipe_event.fd = signal_pipe[0];
 	signal_pipe_event.flags = EV_READ;
