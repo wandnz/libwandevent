@@ -297,6 +297,11 @@ void wand_add_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 	/* Doubly linked lists are annoying! */
 	/* FIXME: This code sucks ass */
 	while(tmp->prev) {
+		
+		/* Don't insert the same timer twice - that will end badly */
+		if (tmp == timer) 
+			return;
+		
 		if (TV_CMP(tmp->expire, timer->expire) <= 0) {
 			/* insert */
 			if (tmp->next)
@@ -310,6 +315,10 @@ void wand_add_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 		}
 		tmp = tmp->prev;
 	}
+	
+	/* Don't insert the same timer twice - that will end badly */
+	if (tmp == timer) 
+		return;
 	
 	if (TV_CMP(tmp->expire, timer->expire) < 0) {
 		if (tmp->next)
@@ -325,6 +334,23 @@ void wand_add_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 		timer->prev = NULL;
 		ev_hdl->timers = timer;
 	}
+
+}
+
+static void dump_timers(wand_event_handler_t *ev_hdl) {
+
+	struct wand_timer_t *t = ev_hdl->timers;
+	int c = 0;
+
+	while(t) {
+		fprintf(stderr, "%u.%u ", t->expire.tv_sec, t->expire.tv_usec);
+		t = t->next;
+		c++;
+
+		assert(c<5);
+	}
+
+	fprintf(stderr, "\n");
 
 }
 
@@ -443,6 +469,7 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 		/* Force the monotonic clock up to date */
 		wand_get_monotonictime(ev_hdl);
 
+
 		/* Check for timer events that have fired */
 		while(NEXT_TIMER && 
 			TV_CMP(ev_hdl->monotonictime, NEXT_TIMER->expire)>0)
@@ -481,6 +508,17 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 			/* No outstanding timers, so we can wait forever! */
 			delayp = NULL;
 		}
+
+		/*
+		if (delayp) {
+			fprintf(stderr, "Time is %u.%u   Next timer expires in %u.%u\n", 
+				ev_hdl->monotonictime.tv_sec,
+				ev_hdl->monotonictime.tv_usec,delayp->tv_sec,
+				delayp->tv_usec);
+			if (delayp->tv_sec >= 1)
+				dump_timers(ev_hdl);
+		}
+		*/
 
 		xrfd = ev_hdl->rfd;
 		xwfd = ev_hdl->wfd;
