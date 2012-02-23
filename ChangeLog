@@ -1,2 +1,8 @@
+Version 2.0.1
+ * Fixed bug where it was possible to add the same timer twice, possibly
+   creating a loop in the timer list.
+ * Fixed leaking of signal file descriptors.
+	
+
 Version 2.0.0
-	Initial public release
+ * Initial public release
