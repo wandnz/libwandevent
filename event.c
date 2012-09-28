@@ -193,6 +193,9 @@ wand_event_handler_t * wand_create_event_handler()
 /* Frees all the resources associated with an event handler */
 void wand_destroy_event_handler(wand_event_handler_t *wand_ev) {
 	
+	if (signals)
+		free(signals);
+	
 	if (wand_ev->fd_events)
 		free(wand_ev->fd_events);
 	
@@ -262,6 +265,7 @@ void wand_del_signal(struct wand_signal_t *signal)
 
 	if (signals[signal->signum] != NULL) {
 		sigdelset(&active_sig, signal->signum);
+		sigemptyset(&removed);
 		sigaddset(&removed, signal->signum);
 		if (sigaction(signal->signum, &default_sig, 0) < 0) {
 			fprintf(stderr, "Error removing sigaction\n");
