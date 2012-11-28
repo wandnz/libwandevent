@@ -105,10 +105,13 @@ static void pipe_read(struct wand_fdcb_t* evcb, enum wand_eventtype_t ev) {
 		return;
 	}
 	signal = signals[signum];
+	/* Release the lock here - otherwise we will deadlock if a signal
+	 * callback tries to delete the signal event or add a new one */
+	pthread_mutex_unlock(&signal_mutex);
+	
 	if (signal != NULL) {
 		signal->callback(signal);
 	}
-	pthread_mutex_unlock(&signal_mutex);
 }
 
 static void set_close_on_exec(int fd)
@@ -126,6 +129,8 @@ static void set_close_on_exec(int fd)
 int wand_event_init() {
 	int fileflags;
 	sigemptyset(&(active_sig));
+
+	pthread_mutex_init(&signal_mutex, NULL);
 	
 	signal_event.sa_handler = event_sig_hdl;
 	sigemptyset(&(signal_event.sa_mask));
