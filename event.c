@@ -452,7 +452,8 @@ struct timeval wand_get_monotonictime(wand_event_handler_t *ev_hdl)
 	return ev_hdl->monotonictime;
 #else
 #warning "No monotonic clock support on this system"
-	return wand_get_walltime(ev_hdl);
+	ev_hdl->monotonictime = wand_get_walltime(ev_hdl);
+	return ev_hdl->monotonictime;
 #endif
 }
 
@@ -478,7 +479,7 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 		/* Force the monotonic clock up to date */
 		wand_get_monotonictime(ev_hdl);
 
-
+	
 		/* Check for timer events that have fired */
 		while(NEXT_TIMER && 
 			TV_CMP(ev_hdl->monotonictime, NEXT_TIMER->expire)>0)
