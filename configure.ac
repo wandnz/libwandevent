@@ -26,6 +26,24 @@ fi
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([memset strdup])
 
+AC_ARG_WITH(epoll, AS_HELP_STRING(--without-epoll, prefer select over epoll),
+[
+	if test "$withval" = no 
+	then
+		want_epoll=no
+	else
+		want_epoll=yes
+	fi
+],[
+	want_epoll=yes
+])
+
+if test "x$want_epoll" != "xno"; then
+	AC_CHECK_HEADERS([sys/epoll.h])
+fi
+
 AC_CONFIG_FILES([Makefile])
+
+AM_CONDITIONAL([BUILD_EPOLL],[test "$ac_cv_header_sys_epoll_h" = yes])
 AC_OUTPUT
 

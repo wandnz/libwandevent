@@ -46,6 +46,8 @@ enum wand_eventtype_t {
 	EV_EXCEPT = 4
 };
 
+typedef struct wand_event_handler_t wand_event_handler_t;
+
 /* File descriptor event */
 struct wand_fdcb_t {
 	/* The file descriptor that the event is registered on */
@@ -55,7 +57,9 @@ struct wand_fdcb_t {
 	/* Pointer to data that can be accessed during the callback */
 	void *data;
 	/* Function to call when the event fires */
-	void (*callback)(struct wand_fdcb_t *handle, enum wand_eventtype_t ev);
+	void (*callback)(wand_event_handler_t *ev_hdl, int fd, void *data, 
+			enum wand_eventtype_t ev);
+	void *internal;
 };
 
 /* Timer event */
@@ -63,7 +67,7 @@ struct wand_timer_t {
 	/* Time that the event is due to fire */
 	struct timeval expire;
 	/* Function to call when the event fires */
-	void (*callback)(struct wand_timer_t *timer);
+	void (*callback)(wand_event_handler_t *ev_hdl, void *data);
 	/* Pointer to data that can be accessed during the callback */
 	void *data;
 	
@@ -78,19 +82,23 @@ struct wand_signal_t {
 	/* The number of the signal the event is registered on */
 	int signum;
 	/* Function to call when the event fires */
-	void (*callback)(struct wand_signal_t *signal);
+	void (*callback)(wand_event_handler_t *ev_hdl, int signum, void *data);
 	/* Pointer to data that can be accessed during the callback */
 	void *data;
 };
 
 /* The event handler environment - essentially holds the "global" variables
  * for a libwandevent instance */
-typedef struct wand_event_handler_t {
+struct wand_event_handler_t {
 	/* fd sets for reading, writing and exception events, respectively */
 	fd_set rfd;		
 	fd_set wfd;
 	fd_set xfd;		
 	
+	/* fd for the epoll instance */
+	int epoll_fd;
+
+
 	/* The currently active file descriptor events */
 	struct wand_fdcb_t **fd_events;	
 	/* Start of the timer event linked list */
@@ -113,7 +121,7 @@ typedef struct wand_event_handler_t {
 	 * control to the user program */
 	bool running;
 
-} wand_event_handler_t;
+};
 
 /* Initialises libwandevent, particularly the signal handling */
 int wand_event_init(void);
@@ -129,22 +137,34 @@ void wand_destroy_event_handler(wand_event_handler_t *wand_ev);
 struct timeval wand_calc_expire(wand_event_handler_t *ev_hdl, int sec,int usec);
 
 /* Registers a file descriptor event */
-void wand_add_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *);
+struct wand_fdcb_t * wand_add_fd(wand_event_handler_t *ev_hdl, 
+		int fd, int flags, void *data,
+		void (*callback)(wand_event_handler_t *ev_hdl, 
+				int fd, void *data, enum wand_eventtype_t ev)
+		);
 
 /* Registers a timer event */
-void wand_add_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *);
+struct wand_timer_t * wand_add_timer(wand_event_handler_t *ev_hdl, 
+		int sec, int usec, void *data, 
+		void (*callback)(wand_event_handler_t *ev_hdl, void *data));
 
 /* Registers a signal event */
-void wand_add_signal(struct wand_signal_t *);
+struct wand_signal_t * wand_add_signal(int signum, void *data,
+		void (*callback)(wand_event_handler_t *ev_hdl, int signum,
+				void *data));
 
 /* Cancels a file descriptor event */
-void wand_del_event(wand_event_handler_t *ev_hdl, struct wand_fdcb_t *);
+void wand_del_fd(wand_event_handler_t *ev_hdl, int fd);
+
+int wand_get_fd_flags(wand_event_handler_t *ev_hdl, int fd);
+
+void wand_set_fd_flags(wand_event_handler_t *ev_hdl, int fd, int new_flags);
 
 /* Cancels a timer event */
 void wand_del_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *);
 
 /* Cancels a signal event */
-void wand_del_signal(struct wand_signal_t *);
+void wand_del_signal(int signum);
 
 /* Starts the event handler - at this point, the execution of your program 
  * will now only occur via the callback functions for the events you registered
