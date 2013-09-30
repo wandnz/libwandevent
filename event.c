@@ -591,7 +591,7 @@ void wand_del_fd(wand_event_handler_t *ev_hdl, int fd)
 			(struct epoll_event *)evcb->internal);
 	if (ret < 0) {
 		perror("epoll_ctl");
-		fprintf(stderr, "Error removing fd %d from epoll\n", fd);
+		fprintf(stderr, "Error removing fd %d from epoll (epollfd=%d)\n", fd, ev_hdl->epoll_fd);
 		return;
 	}
 	free(evcb->internal);
