@@ -1,3 +1,21 @@
+Version 3.0.0
+ * Changed API for adding and deleting all types of event callbacks. Rather
+   than populating a struct and passing it in to libwandevent, the add methods
+   now simply take the struct members as parameters and perform all the 
+   memory management for the user. This helps prevent a number of bugs caused
+   when the same struct was badly reused by a user.
+   Overall, the new approach is much more intuitive and requires less effort
+   on the part of the user but it does mean that the API has changed quite
+   significantly. Old libwandevent programs will need to be updated to use the
+   new API.
+ * Added support for epoll, which is preferred over conventional select. If
+   the underlying OS doesn't support epoll, libwandevent will fallback to 
+   using select.
+ * Fixed bug where the monotonic time was not being set correctly if no
+   monotonic clock was present.
+ * Fixed bug where signal events could not be added or deleted inside a signal
+   event callback.
+
 Version 2.0.1
  * Fixed bug where it was possible to add the same timer twice, possibly
    creating a loop in the timer list.
