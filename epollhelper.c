@@ -25,7 +25,7 @@ struct epoll_event *create_epoll_event(wand_event_handler_t *ev_hdl,
         struct epoll_event *epev = NULL;
         int ret = 0;
 
-        epev = (struct epoll_event *)malloc(sizeof(struct epoll_event));
+        epev = (struct epoll_event *)calloc(1, sizeof(struct epoll_event));
         if (epev == NULL)
                 return NULL;
 

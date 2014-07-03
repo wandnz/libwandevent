@@ -209,6 +209,10 @@ wand_event_handler_t * wand_create_event_handler()
 	wand_ev->running=true;
 	wand_ev->walltimeok=false;
 	wand_ev->monotonictimeok=false;
+	wand_ev->walltime.tv_sec=0;
+	wand_ev->walltime.tv_usec=0;
+	wand_ev->monotonictime.tv_sec=0;
+	wand_ev->monotonictime.tv_usec=0;
 
 	pthread_mutex_lock(&signal_mutex);
 	signal_users ++;
@@ -243,7 +247,11 @@ static void clear_signals(wand_event_handler_t *wand_ev) {
 		return;
 	}
 	
-	for (i = 0; i < maxsig; i++) {
+        /*
+         * TODO Ideally this should use wand_del_signal but I don't feel like
+         * dealing properly with the locking just now.
+         */
+	for (i = 0; i <= maxsig; i++) {
 		if (signals[i])
 			free(signals[i]);
 	}
@@ -255,9 +263,9 @@ static void clear_signals(wand_event_handler_t *wand_ev) {
 static void clear_fds(wand_event_handler_t *wand_ev) {
 	int i;
 
-	for (i = 0; i < wand_ev->maxfd; i++) {
+	for (i = 0; i <= wand_ev->maxfd; i++) {
 		if (wand_ev->fd_events[i])
-			free(wand_ev->fd_events[i]);
+			wand_del_fd(wand_ev, i);
 	}
 	free(wand_ev->fd_events);
 
@@ -362,6 +370,7 @@ void wand_del_signal(int signum)
 		}
 		sigprocmask(SIG_UNBLOCK, &removed, 0);
 		free(signal);
+		signals[signum] = NULL;
 	} else {
 		/* No signal here? */
 
