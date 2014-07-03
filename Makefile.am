@@ -8,6 +8,6 @@ HELPERSOURCE=selecthelper.c selecthelper.h
 endif
 
 libwandevent_la_SOURCES = event.c libwandevent.h $(HELPERSOURCE)
-libwandevent_la_LDFLAGS = -version-info 3:0:0
+libwandevent_la_LDFLAGS = -version-info 3:1:0
 
 

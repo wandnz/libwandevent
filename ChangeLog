@@ -1,3 +1,9 @@
+Version 3.0.1
+Credit to Brendon Jones for the bug fixes in this release
+ * Fixed bug where wand_del_signal would not completely remove the signal
+   from the signal map.
+ * Fixed numerous minor memory errors that cause valgrind to complain.
+
 Version 3.0.0
  * Changed API for adding and deleting all types of event callbacks. Rather
    than populating a struct and passing it in to libwandevent, the add methods
