@@ -61,7 +61,7 @@ void process_epoll_event(wand_event_handler_t *ev_hdl,
 		 * we need to check for both new data and a hang up. Process
 		 * the data first, then check for a client disconnect.
 		 */
-                if ((evtype | EPOLLIN) == EPOLLIN) {
+                if ((evtype & EPOLLIN) == EPOLLIN) {
                         evcb->callback(ev_hdl, fd, evcb->data, EV_READ);
                 }
 
@@ -77,7 +77,7 @@ void process_epoll_event(wand_event_handler_t *ev_hdl,
         if (evcb == NULL)
                 return;
 
-        if ((evtype | EPOLLOUT) == EPOLLOUT && (evcb->flags & EV_WRITE)) {
+        if ((evtype & EPOLLOUT) == EPOLLOUT && (evcb->flags & EV_WRITE)) {
 
                 evcb->callback(ev_hdl, fd, evcb->data, EV_WRITE);
         }
