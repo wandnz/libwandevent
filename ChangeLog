@@ -1,3 +1,7 @@
+Version 3.0.2
+ * Fixed bug where an epoll FD event could not support both READ and WRITE
+   events at the same time.
+
 Version 3.0.1
 Credit to Brendon Jones for the bug fixes in this release
  * Fixed bug where wand_del_signal would not completely remove the signal
