@@ -1,9 +1,9 @@
-Libwandevent -  A handy event-handling environment used by a variety of 
-		software developed by the WAND Group at the University of 
+Libwandevent -  A handy event-handling environment used by a variety of
+		software developed by the WAND Group at the University of
 		Waikato, New Zealand.
 
 ------------------------------------------------------------------------------
-Libwandevent is Copyright (c) 2009-2014 The University of Waikato, Hamilton, 
+Libwandevent is Copyright (c) 2009-2014 The University of Waikato, Hamilton,
 New Zealand. All rights reserved.
 
 This code has been developed by the University of Waikato WAND research group.
@@ -30,12 +30,10 @@ Events can be registered on:
 
 We expect that most users of libwandevent are only installing it because it
 is required to use some other piece of WAND software. However, if you wish
-to use it yourself to develop event-driven programs, feel free to do so. 
+to use it yourself to develop event-driven programs, feel free to do so.
 
 Libwandevent is licensed under the GNU General Public License (GPL) version 2.
 Please see the include file COPYING for details of this license.
 
-For further information, please contact the WAND Group - see 
+For further information, please contact the WAND Group - see
 http://www.wand.net.nz/ for details or email contact@wand.net.nz
-
-		

@@ -63,7 +63,7 @@
 #endif
 
 /* We use global variables and a mutex to handle signal events, as it just
- * turns out to be a pain to deal with it all using the event handler 
+ * turns out to be a pain to deal with it all using the event handler
  * structure */
 int signal_pipe[2];
 int signal_pipe_fd = -1;
@@ -80,7 +80,7 @@ pthread_mutex_t signal_mutex;
 
 /* This is our actual signal handler. All it does is write the signal number
  * into the signal pipe we created earlier. This will trigger an fd event on
- * the pipe, which we can use to trigger the event outside of the signal 
+ * the pipe, which we can use to trigger the event outside of the signal
  * interrupt (because doing things for any length of time inside a signal
  * interrupt is very bad!) */
 static void event_sig_hdl(int signum) {
@@ -106,11 +106,11 @@ static void pipe_read(wand_event_handler_t *ev_hdl, int fd, void *data,
 			/* Another thread might have already read the signal */
 			return;
 		}
-			
+
 		fprintf(stderr, "error reading signum from pipe\n");
 		return;
 	}
-	
+
 	/* Don't let any threaded programs mess with our set of signal
 	 * events while we're trying to invoke callbacks */
 	pthread_mutex_lock(&signal_mutex);
@@ -123,7 +123,7 @@ static void pipe_read(wand_event_handler_t *ev_hdl, int fd, void *data,
 	/* Release the lock here - otherwise we will deadlock if a signal
 	 * callback tries to delete the signal event or add a new one */
 	pthread_mutex_unlock(&signal_mutex);
-	
+
 	if (signal != NULL) {
 		signal->callback(ev_hdl, signum, signal->data);
 	}
@@ -146,26 +146,26 @@ int wand_event_init() {
 	sigemptyset(&(active_sig));
 
 	pthread_mutex_init(&signal_mutex, NULL);
-	
+
 	signal_event.sa_handler = event_sig_hdl;
 	sigemptyset(&(signal_event.sa_mask));
 	signal_event.sa_flags = 0;
-	
+
 	default_sig.sa_handler = SIG_DFL;
 	sigemptyset(&(default_sig.sa_mask));
 	default_sig.sa_flags = 0;
-	
+
 	if (pipe(signal_pipe) != 0) {
 		fprintf(stderr, "Error creating signal event pipe\n");
 		return -1;
 	}
-	
+
 	if ((fileflags = fcntl(signal_pipe[0], F_GETFL, 0)) == -1) {
 		fprintf(stderr, "Failed to get flags for signal pipe\n");
 		return -1;
 	}
 
-	if (fcntl(signal_pipe[0], F_SETFL, 
+	if (fcntl(signal_pipe[0], F_SETFL,
 			fileflags | O_NONBLOCK) == -1) {
 		fprintf(stderr, "Failed to set flags for signal pipe\n");
 		return -1;
@@ -175,20 +175,20 @@ int wand_event_init() {
 	set_close_on_exec(signal_pipe[1]);
 
 
-	signal_pipe_fd = signal_pipe[0];	
+	signal_pipe_fd = signal_pipe[0];
 	signals = NULL;
 	maxsig = -1;
 	using_signals = false;
 	return 1;
 }
-	
+
 /* Creates an event handler environment and initialises all the "global"
  * variables associated with it */
 wand_event_handler_t * wand_create_event_handler()
 {
 	wand_event_handler_t *wand_ev;
 	wand_ev = (wand_event_handler_t *)malloc(sizeof(wand_event_handler_t));
-	
+
 #if HAVE_SYS_EPOLL_H
 	wand_ev->epoll_fd = epoll_create(100);
 	if (wand_ev->epoll_fd < 0) {
@@ -201,7 +201,7 @@ wand_event_handler_t * wand_create_event_handler()
 	FD_ZERO(&(wand_ev->rfd));
 	FD_ZERO(&(wand_ev->wfd));
 	FD_ZERO(&(wand_ev->xfd));
-#endif	
+#endif
 	wand_ev->fd_events=NULL;
 	wand_ev->timers=NULL;
 	wand_ev->timers_tail=NULL;
@@ -217,7 +217,7 @@ wand_event_handler_t * wand_create_event_handler()
 	pthread_mutex_lock(&signal_mutex);
 	signal_users ++;
 	pthread_mutex_unlock(&signal_mutex);
-		
+
 	/* Add an event to watch for signals */
 	assert(wand_add_fd(wand_ev, signal_pipe_fd, EV_READ, NULL, pipe_read));
 	return wand_ev;
@@ -246,7 +246,7 @@ static void clear_signals(wand_event_handler_t *wand_ev) {
 		pthread_mutex_unlock(&signal_mutex);
 		return;
 	}
-	
+
         /*
          * TODO Ideally this should use wand_del_signal but I don't feel like
          * dealing properly with the locking just now.
@@ -275,18 +275,18 @@ static void clear_fds(wand_event_handler_t *wand_ev) {
 void wand_destroy_event_handler(wand_event_handler_t *wand_ev) {
 
 	clear_timers(wand_ev);
-	
+
 	if (signals) {
 		clear_signals(wand_ev);
 	}
-	
+
 	if (wand_ev->fd_events) {
 		clear_fds(wand_ev);
 	}
-		
+
 	if (wand_ev->epoll_fd >= 0)
 		close(wand_ev->epoll_fd);
-	
+
 	free(wand_ev);
 }
 
@@ -314,7 +314,7 @@ struct wand_signal_t *wand_add_signal(int signum, void *data,
 {
 	struct wand_signal_t *siglist;
 	struct wand_signal_t *signal;
-	
+
 	/* Don't forget to grab the mutex, because we're not thread-safe */
 	pthread_mutex_lock(&signal_mutex);
 	assert(signum>0);
@@ -334,7 +334,7 @@ struct wand_signal_t *wand_add_signal(int signum, void *data,
                 }
                 maxsig=signal->signum;
         }
-	
+
 	siglist = signals[signal->signum];
 	if (siglist == NULL) {
 		sigaddset(&active_sig, signal->signum);
@@ -348,16 +348,16 @@ struct wand_signal_t *wand_add_signal(int signum, void *data,
 		return NULL;
 
 	}
-	
+
 	pthread_mutex_unlock(&signal_mutex);
 	return signal;
 }
 
 /* Cancels a signal event */
-void wand_del_signal(int signum) 
+void wand_del_signal(int signum)
 {
 	sigset_t removed;
-	struct wand_signal_t *signal = signals[signum];	
+	struct wand_signal_t *signal = signals[signum];
 
 	pthread_mutex_lock(&signal_mutex);
 
@@ -375,7 +375,7 @@ void wand_del_signal(int signum)
 		/* No signal here? */
 
 	}
-	
+
 	pthread_mutex_unlock(&signal_mutex);
 }
 
@@ -384,8 +384,8 @@ void wand_del_signal(int signum)
 			: (a).tv_sec - (b).tv_sec)
 
 /* Registers a timer event */
-struct wand_timer_t *wand_add_timer(wand_event_handler_t *ev_hdl, 
-		int sec, int usec, void *data, 
+struct wand_timer_t *wand_add_timer(wand_event_handler_t *ev_hdl,
+		int sec, int usec, void *data,
 		void (*callback)(wand_event_handler_t *ev_hdl, void *data))
 {
 
@@ -397,7 +397,7 @@ struct wand_timer_t *wand_add_timer(wand_event_handler_t *ev_hdl,
 		return NULL;
 	}
 
-	
+
 	timer = (struct wand_timer_t *)malloc(sizeof(struct wand_timer_t));
 	timer->expire = wand_calc_expire(ev_hdl, sec, usec);
 	timer->callback = callback;
@@ -409,16 +409,16 @@ struct wand_timer_t *wand_add_timer(wand_event_handler_t *ev_hdl,
 		return timer;
 	}
 	assert(ev_hdl->timers_tail->next == NULL);
-	
+
 	/* Doubly linked lists are annoying! */
 	/* FIXME: This code sucks ass */
 	while(tmp->prev) {
-		
+
 		if (TV_CMP(tmp->expire, timer->expire) <= 0) {
 			/* insert */
 			if (tmp->next)
 				tmp->next->prev = timer;
-			else 
+			else
 				ev_hdl->timers_tail = timer;
 			timer->next = tmp->next;
 			timer->prev = tmp;
@@ -427,7 +427,7 @@ struct wand_timer_t *wand_add_timer(wand_event_handler_t *ev_hdl,
 		}
 		tmp = tmp->prev;
 	}
-	
+
 	if (TV_CMP(tmp->expire, timer->expire) < 0) {
 		if (tmp->next)
                 	tmp->next->prev = timer;
@@ -451,7 +451,7 @@ static void dump_timers(wand_event_handler_t *ev_hdl) {
 	int c = 0;
 
 	while(t) {
-		fprintf(stderr, "%u.%u ", (uint32_t)t->expire.tv_sec, 
+		fprintf(stderr, "%u.%u ", (uint32_t)t->expire.tv_sec,
 				(uint32_t)t->expire.tv_usec);
 		t = t->next;
 		c++;
@@ -483,14 +483,14 @@ void wand_del_timer(wand_event_handler_t *ev_hdl, struct wand_timer_t *timer)
 }
 
 /* Adds a file descriptor event */
-struct wand_fdcb_t * wand_add_fd(wand_event_handler_t *ev_hdl, 
+struct wand_fdcb_t * wand_add_fd(wand_event_handler_t *ev_hdl,
 		int fd, int flags, void *data,
 		void (*callback)(wand_event_handler_t *ev_hdl,
 				int fd, void *data, enum wand_eventtype_t ev))
 {
 
 	struct wand_fdcb_t *evcb;
-	
+
 	if (fd < 0)
 		return NULL;
 
@@ -506,7 +506,7 @@ struct wand_fdcb_t * wand_add_fd(wand_event_handler_t *ev_hdl,
 	evcb->flags = flags;
 	evcb->data = data;
 	evcb->callback = callback;
-	
+
 	if (evcb->fd>ev_hdl->maxfd) {
 		ev_hdl->fd_events=realloc(ev_hdl->fd_events,
 				sizeof(struct wand_fdcb_t)*(evcb->fd+1));
@@ -566,14 +566,14 @@ void wand_set_fd_flags(wand_event_handler_t *ev_hdl, int fd, int new_flags) {
 
 #if HAVE_SYS_EPOLL_H
 	set_epoll_event((struct epoll_event *)evcb->internal, fd, evcb->flags);
-	int ret = epoll_ctl(ev_hdl->epoll_fd, EPOLL_CTL_MOD, fd, 
+	int ret = epoll_ctl(ev_hdl->epoll_fd, EPOLL_CTL_MOD, fd,
 			(struct epoll_event *)evcb->internal);
 	if (ret < 0) {
 		perror("epoll_ctl");
 		fprintf(stderr, "Error modifying fd %d within epoll\n", fd);
 		return;
 	}
-#else	
+#else
 	FD_CLR(fd,&(ev_hdl->rfd));
 	FD_CLR(fd,&(ev_hdl->wfd));
 	FD_CLR(fd,&(ev_hdl->xfd));
@@ -596,7 +596,7 @@ void wand_del_fd(wand_event_handler_t *ev_hdl, int fd)
 
 	ev_hdl->fd_events[fd]=NULL;
 #if HAVE_SYS_EPOLL_H
-	int ret = epoll_ctl(ev_hdl->epoll_fd, EPOLL_CTL_DEL, fd, 
+	int ret = epoll_ctl(ev_hdl->epoll_fd, EPOLL_CTL_DEL, fd,
 			(struct epoll_event *)evcb->internal);
 	if (ret < 0) {
 		perror("epoll_ctl");
@@ -604,7 +604,7 @@ void wand_del_fd(wand_event_handler_t *ev_hdl, int fd)
 		return;
 	}
 	free(evcb->internal);
-#else	
+#else
 	if (evcb->flags & EV_READ)   FD_CLR(fd,&(ev_hdl->rfd));
 	if (evcb->flags & EV_WRITE)  FD_CLR(fd,&(ev_hdl->wfd));
 	if (evcb->flags & EV_EXCEPT) FD_CLR(fd,&(ev_hdl->xfd));
@@ -613,7 +613,7 @@ void wand_del_fd(wand_event_handler_t *ev_hdl, int fd)
 #if EVENT_DEBUG
 	printf("del events for %d\n",evcb->fd);
 #endif
-	
+
 	free(evcb);
 }
 
@@ -675,18 +675,18 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 	struct timeval *delayp;
 #endif
 
-	
+
 	while (ev_hdl->running) {
 		pthread_mutex_lock(&signal_mutex);
 		current_sig = active_sig;
 		pthread_mutex_unlock(&signal_mutex);
-		
+
 		/* Force the monotonic clock up to date */
 		wand_get_monotonictime(ev_hdl);
 
-	
+
 		/* Check for timer events that have fired */
-		while(NEXT_TIMER && 
+		while(NEXT_TIMER &&
 			TV_CMP(ev_hdl->monotonictime, NEXT_TIMER->expire)>0)
 		{
 			assert(NEXT_TIMER->prev == NULL);
@@ -707,8 +707,8 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 			if (!ev_hdl->running)
 				return;
 		}
-		
-		/* We want our upcoming select() to finish before the next 
+
+		/* We want our upcoming select() to finish before the next
 		 * timer event is due to fire */
 #if HAVE_SYS_EPOLL_H
 		if (NEXT_TIMER)
@@ -725,12 +725,12 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 #endif
 
 		/* Because we can handle our signal events via an fd event,
-		 * we only want to allow signal interrupts while we're 
+		 * we only want to allow signal interrupts while we're
 		 * capable of triggering fd events. */
 		if (using_signals) {
 			sigprocmask(SIG_UNBLOCK, &current_sig, 0);
 		}
-	
+
 
 #if HAVE_SYS_EPOLL_H
 		do {
@@ -763,7 +763,7 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 		/* Invalidate the clocks */
 		ev_hdl->walltimeok=false;
 		ev_hdl->monotonictimeok=false;
-		
+
 		/* Block all signal interrupts for signals that we are
 		 * handling again */
 		if (using_signals) {
@@ -781,10 +781,7 @@ void wand_event_run(wand_event_handler_t *ev_hdl)
 				continue;
 			assert(ev_hdl->fd_events[fd]->fd==fd);
 			process_select_event(ev_hdl, fd, &xrfd, &xwfd, &xxfd);
-		}		
-#endif			
+		}
+#endif
 	}
 }
-
-
-
