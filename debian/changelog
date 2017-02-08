@@ -1,0 +1,18 @@
+libwandevent (3.0.2-1) unstable; urgency=low
+
+  * Fixed bug where an epoll FD event could not support both READ and WRITE
+    events at the same time.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Wed,  8 Feb 2017 11:25:22 +1300
+
+libwandevent (3.0.1-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Thu, 28 Aug 2014 16:44:50 +1200
+
+libwandevent (2.0.1-1) unstable; urgency=low
+
+  * Initial release
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 30 Apr 2013 14:36:12 +1200
