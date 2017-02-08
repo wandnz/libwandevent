@@ -23,14 +23,13 @@
  *
  * You should have received a copy of the GNU General Public License along
  * with libwandevent; if not, write to the Free Software Foundation, Inc.,
- * 59 Temple Place, Suite 330, Boston, MA  0211-1307  USA
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  * Any feedback (bug reports, suggestions, complaints) should be sent to
  * contact@wand.net.nz
  *
- * $Id$
- *
  */
+
 #ifndef EVENT_H
 #define EVENT_H
 #include <stdbool.h>
