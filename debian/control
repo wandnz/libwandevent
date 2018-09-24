@@ -24,7 +24,7 @@ Description: C API for writing event driven programs (development version).
  that event occur. All of the code for managing the events and determining
  whether an event has occurred is contained within libwandevent, leaving the
  developer free to concentrate on the events themselves rather than having to
- check for the occurence of the event.
+ check for the occurrence of the event.
  .
  This package provides the development files (i.e. includes, static libraries)
  that allow you to build software which that uses libwandevent.
@@ -45,4 +45,4 @@ Description: C API for writing event driven programs.
  that event occur. All of the code for managing the events and determining
  whether an event has occurred is contained within libwandevent, leaving the
  developer free to concentrate on the events themselves rather than having to
- check for the occurence of the event.
+ check for the occurrence of the event.
