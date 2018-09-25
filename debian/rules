@@ -12,5 +12,9 @@
 %:
 	dh $@ 
 
+override_dh_auto_configure:
+	if [ -x $(CURDIR)/bootstrap.sh ]; then $(CURDIR)/bootstrap.sh; fi
+	dh_auto_configure -- $(shell dpkg-buildflags --export=configure)
+
 override_dh_builddeb:
 	dh_builddeb -- -Zgzip
