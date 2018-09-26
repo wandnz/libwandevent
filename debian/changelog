@@ -1,3 +1,14 @@
+libwandevent (3.0.2-2) unstable; urgency=low
+
+  * Fix spelling mistake in package description.
+  * Force using older gzip compression when building packages.
+  * Fix bootstrap.sh to fallback correctly to glibtoolize.
+  * Run bootstrap.sh as part of the packaging process.
+  * Add automake and libtool as package build dependencies.
+  * Remove *.la files from the dev package.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Tue, 25 Sep 2018 15:40:10 +1200
+
 libwandevent (3.0.2-1) unstable; urgency=low
 
   * Fixed bug where an epoll FD event could not support both READ and WRITE
