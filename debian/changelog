@@ -1,3 +1,9 @@
+libwandevent (3.0.2-3) unstable; urgency=low
+
+  * Use GitLab CI/CD to upload built packages to bintray.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 18 Feb 2019 13:22:06 +1300
+
 libwandevent (3.0.2-2) unstable; urgency=low
 
   * Fix spelling mistake in package description.
