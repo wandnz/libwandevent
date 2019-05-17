@@ -4,10 +4,11 @@ Release: 1%{?dist}
 Summary: C API for writing event driven programs
 
 Group: Development/Libraries
-License: GPL2
-URL: http://research.wand.net.nz/software/libwandevent.php
-Source0: http://research.wand.net.nz/software/libwandevent/libwandevent-3.0.2.tar.gz
+License: GPLv2
+URL: https://github.com/wanduow/libwandevent
+Source0: https://github.com/wanduow/libwandevent/archive/%{version}.tar.gz
 BuildRoot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
+BuildRequires: automake libtool
 
 
 %description
