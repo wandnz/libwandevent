@@ -121,6 +121,12 @@ build-jessie-armhf:
 #  before_script:
 #    - *fix_jessie_multiarch_apt
 
+build-centos7-amd64:
+  <<: *build_template
+  image: centos:7
+  script:
+    - ./gitlab-build-rpm.sh
+
 upload-packages:
   stage: upload
   image: ubuntu:bionic
