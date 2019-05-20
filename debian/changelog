@@ -1,3 +1,9 @@
+libwandevent (3.0.2-4) unstable; urgency=low
+
+  * Use GitLab CI/CD to build RPM packages and upload to bintray.
+
+ -- Brendon Jones <brendonj@waikato.ac.nz>  Mon, 20 May 2019 14:21:19 +1200
+
 libwandevent (3.0.2-3) unstable; urgency=low
 
   * Use GitLab CI/CD to upload built packages to bintray.

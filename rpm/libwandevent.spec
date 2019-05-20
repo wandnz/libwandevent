@@ -1,6 +1,6 @@
 Name: libwandevent
 Version: 3.0.2
-Release: 1%{?dist}
+Release: 4%{?dist}
 Summary: C API for writing event driven programs
 
 Group: Development/Libraries
@@ -68,6 +68,12 @@ rm -rf %{buildroot}
 %postun -p /sbin/ldconfig
 
 %changelog
+* Mon May 20 2019 Brendon Jones <brendonj@waikato.ac.nz> 3.0.2-4
+- Use GitLab CI/CD to build RPM packages and upload to bintray.
+
+* Tue Sep 25 2018 Brendon Jones <brendonj@waikato.ac.nz> 3.0.2-2
+- Fix bootstrap.sh to fallback correctly to glibtoolize.
+
 * Fri Feb 10 2017 Brendon Jones <brendonj@waikato.ac.nz> 3.0.2-1
 - Fixed bug where an epoll FD event could not support both READ and WRITE
   events at the same time.
