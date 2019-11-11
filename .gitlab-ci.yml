@@ -83,6 +83,22 @@ build-xenial-armhf:
 #    - *fix_ubuntu_multiarch_apt
 #    - *generic_apt_build
 
+build-buster-amd64:
+  <<: *build_template
+  image: debian:buster
+
+build-buster-i386:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:i386-buster
+
+build-buster-armhf:
+  <<: *build_template
+  image: multiarch/debian-debootstrap:armhf-buster
+
+#build-buster-arm64:
+#  <<: *build_template
+#  image: multiarch/debian-debootstrap:arm64-buster
+
 build-stretch-amd64:
   <<: *build_template
   image: debian:stretch
