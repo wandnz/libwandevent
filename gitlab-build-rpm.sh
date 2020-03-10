@@ -4,7 +4,7 @@ set -x -e -o pipefail
 
 . /etc/os-release
 CODENAME=${ID}_${VERSION_ID}
-TAGNAME=`echo ${CI_COMMIT_REF_NAME} | cut -d '-' -f 1`
+TAGNAME=`grep -m 1 Version rpm/${CI_PROJECT_NAME}.spec | awk '{print $2}'`
 
 # set up an RPM build environment
 yum install -y rpm-build rpmdevtools make gcc epel-release
